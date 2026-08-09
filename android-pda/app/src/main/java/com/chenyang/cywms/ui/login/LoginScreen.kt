@@ -427,17 +427,20 @@ fun LoginScreen(
                 .padding(bottom = 12.dp)
         )
 
-        // Toast 风格提示：暗红半透明，区别于登录页深蓝背景
+        // Toast 风格提示：底部弹出，暗红半透明，区别于登录页背景
         AnimatedVisibility(
             visible = state.showToast && state.toastMessage.isNotBlank(),
             enter = fadeIn(tween(150)),
             exit = fadeOut(tween(200)),
-            modifier = Modifier.align(Alignment.Center)
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .navigationBarsPadding()
+                .padding(bottom = 72.dp)
         ) {
             Box(
                 modifier = Modifier
-                    .padding(horizontal = 36.dp)
-                    .widthIn(max = 300.dp)
+                    .padding(horizontal = 24.dp)
+                    .widthIn(max = 320.dp)
                     .clip(RoundedCornerShape(10.dp))
                     .background(Color(0xCC6B1D24))
                     .border(1.dp, Color(0x66FF8A80), RoundedCornerShape(10.dp))
