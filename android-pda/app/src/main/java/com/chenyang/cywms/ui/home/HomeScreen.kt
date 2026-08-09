@@ -51,8 +51,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.chenyang.cywms.R
-import com.chenyang.cywms.ui.theme.Amber500
-import com.chenyang.cywms.ui.theme.Navy700
 import com.chenyang.cywms.ui.theme.Navy800
 import com.chenyang.cywms.ui.theme.Navy900
 import com.chenyang.cywms.ui.theme.Slate200
@@ -141,13 +139,14 @@ fun HomeScreen(
                     Column(modifier = Modifier.padding(bottom = 12.dp)) {
                         Text(
                             text = group.title,
-                            color = Amber500,
+                            color = group.accent.accent,
                             fontWeight = FontWeight.SemiBold,
                             fontSize = 12.sp,
                             modifier = Modifier.padding(bottom = 6.dp)
                         )
                         ModuleGrid(
                             modules = group.modules,
+                            accent = group.accent,
                             onClick = { module ->
                                 onModuleClick(module)
                                 scope.launch {
@@ -175,6 +174,7 @@ fun HomeScreen(
 @Composable
 private fun ModuleGrid(
     modules: List<HomeModule>,
+    accent: GroupAccent,
     onClick: (HomeModule) -> Unit
 ) {
     val rows = modules.chunked(HOME_COLUMNS)
@@ -187,6 +187,7 @@ private fun ModuleGrid(
                 row.forEach { module ->
                     ModuleTile(
                         module = module,
+                        accent = accent,
                         onClick = { onClick(module) },
                         modifier = Modifier.weight(1f)
                     )
@@ -202,6 +203,7 @@ private fun ModuleGrid(
 @Composable
 private fun ModuleTile(
     module: HomeModule,
+    accent: GroupAccent,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -209,8 +211,8 @@ private fun ModuleTile(
         modifier = modifier
             .aspectRatio(0.92f)
             .clip(RoundedCornerShape(10.dp))
-            .background(Navy700)
-            .border(1.dp, Color(0x22FFFFFF), RoundedCornerShape(10.dp))
+            .background(accent.tileBg)
+            .border(1.dp, accent.border, RoundedCornerShape(10.dp))
             .clickable(onClick = onClick)
             .padding(horizontal = 6.dp, vertical = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -220,13 +222,13 @@ private fun ModuleTile(
             modifier = Modifier
                 .size(28.dp)
                 .clip(RoundedCornerShape(8.dp))
-                .background(Color(0x33F5A623)),
+                .background(accent.iconWell),
             contentAlignment = Alignment.Center
         ) {
             Icon(
                 imageVector = module.icon,
                 contentDescription = null,
-                tint = Amber500,
+                tint = accent.accent,
                 modifier = Modifier.size(16.dp)
             )
         }
