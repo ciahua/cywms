@@ -175,7 +175,14 @@ fun LoginScreen(
                 enter = fadeIn() + slideInVertically { it / 6 },
                 exit = fadeOut()
             ) {
-                Column {
+                Column(horizontalAlignment = Alignment.Start) {
+                    Image(
+                        painter = painterResource(R.drawable.ic_logo_111),
+                        contentDescription = "辰阳电子",
+                        modifier = Modifier
+                            .padding(bottom = 14.dp)
+                            .size(72.dp)
+                    )
                     Text(
                         text = "江苏辰阳电子 WMS",
                         color = Slate200,

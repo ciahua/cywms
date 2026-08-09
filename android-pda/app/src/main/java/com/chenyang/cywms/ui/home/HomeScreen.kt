@@ -3,6 +3,7 @@ package com.chenyang.cywms.ui.home
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -42,11 +43,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.chenyang.cywms.R
 import com.chenyang.cywms.ui.theme.Amber500
 import com.chenyang.cywms.ui.theme.Navy700
 import com.chenyang.cywms.ui.theme.Navy800
@@ -92,6 +96,14 @@ fun HomeScreen(
                         .padding(bottom = 6.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    Image(
+                        painter = painterResource(R.drawable.ic_logo_111),
+                        contentDescription = null,
+                        contentScale = ContentScale.Fit,
+                        modifier = Modifier
+                            .padding(end = 8.dp)
+                            .size(32.dp)
+                    )
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = "辰阳电子 WMS",

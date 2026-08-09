@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- App 风格色：琥珀环与 111，透明底 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <path
+        android:pathData="M54,12c23.2,0 42,18.8 42,42s-18.8,42 -42,42 -42,-18.8 -42,-42 18.8,-42 42,-42z"
+        android:strokeWidth="7"
+        android:strokeColor="#F5A623"
+        android:fillColor="#00000000" />
+
+    <!-- 左 1：竖干 + 左上三角钩 -->
+    <path
+        android:fillColor="#F5A623"
+        android:pathData="M24,34 L36,26 L40,26 L40,82 L30,82 L30,42 L24,42 Z" />
+    <!-- 中 1 -->
+    <path
+        android:fillColor="#F5A623"
+        android:pathData="M44,34 L56,26 L60,26 L60,82 L50,82 L50,42 L44,42 Z" />
+    <!-- 右 1 -->
+    <path
+        android:fillColor="#F5A623"
+        android:pathData="M64,34 L76,26 L80,26 L80,82 L70,82 L70,42 L64,42 Z" />
+</vector>
