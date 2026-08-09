@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- 现场内网多为 HTTP；ngrok 为 HTTPS -->
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>
