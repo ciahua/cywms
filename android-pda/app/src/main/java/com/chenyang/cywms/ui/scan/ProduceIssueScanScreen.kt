@@ -53,6 +53,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -60,6 +61,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.chenyang.cywms.scanner.ScanBus
+import com.chenyang.cywms.ui.common.scanInputNoIme
 import com.chenyang.cywms.ui.theme.Amber500
 import com.chenyang.cywms.ui.theme.Navy700
 import com.chenyang.cywms.ui.theme.Navy800
@@ -85,6 +87,7 @@ fun ProduceIssueScanScreen(
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
+    val keyboard = LocalSoftwareKeyboardController.current
     val records = remember { mutableStateListOf<ScanRecord>() }
     var latest by remember { mutableStateOf<String?>(null) }
     var wedgeBuffer by remember { mutableStateOf("") }
@@ -110,6 +113,7 @@ fun ProduceIssueScanScreen(
 
     LaunchedEffect(Unit) {
         focusRequester.requestFocus()
+        keyboard?.hide()
         ScanBus.events.collect { code ->
             appendRecord(code)
         }
@@ -177,6 +181,7 @@ fun ProduceIssueScanScreen(
                 .height(1.dp)
                 .alpha(0.01f)
                 .focusRequester(focusRequester)
+                .scanInputNoIme()
                 .onPreviewKeyEvent { event ->
                     if (event.nativeKeyEvent.action == KeyEvent.ACTION_DOWN &&
                         (event.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_ENTER ||

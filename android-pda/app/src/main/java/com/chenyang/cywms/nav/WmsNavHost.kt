@@ -17,6 +17,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.chenyang.cywms.WmsApp
 import com.chenyang.cywms.data.prefs.SessionSnapshot
+import com.chenyang.cywms.ui.common.ModuleSoftKeyboardGuard
 import com.chenyang.cywms.ui.home.HomeScreen
 import com.chenyang.cywms.ui.login.LoginRoute
 import com.chenyang.cywms.ui.login.LoginViewModel
@@ -72,6 +73,7 @@ fun WmsNavHost() {
             )
         }
         composable(Routes.HOME) {
+            ModuleSoftKeyboardGuard()
             val name = session?.realName?.ifBlank { null }
                 ?: session?.username.orEmpty()
             HomeScreen(
@@ -92,6 +94,7 @@ fun WmsNavHost() {
             )
         }
         composable(Routes.PRODUCE_ISSUE_SCAN) {
+            ModuleSoftKeyboardGuard()
             ProduceIssueScanScreen(
                 onBack = { navController.popBackStack() }
             )

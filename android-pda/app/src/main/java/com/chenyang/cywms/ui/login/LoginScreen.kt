@@ -427,7 +427,7 @@ fun LoginScreen(
                 .padding(bottom = 12.dp)
         )
 
-        // 屏幕中央短暂提示（点击更新且无新版本等），自动消失，不被登录按钮挡住
+        // Toast 风格提示：暗红半透明，区别于登录页深蓝背景
         AnimatedVisibility(
             visible = state.showToast && state.toastMessage.isNotBlank(),
             enter = fadeIn(tween(150)),
@@ -436,18 +436,18 @@ fun LoginScreen(
         ) {
             Box(
                 modifier = Modifier
-                    .padding(horizontal = 32.dp)
-                    .widthIn(max = 320.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(Color(0xE61A2438))
-                    .border(1.dp, GlassStroke, RoundedCornerShape(12.dp))
-                    .padding(horizontal = 20.dp, vertical = 14.dp),
+                    .padding(horizontal = 36.dp)
+                    .widthIn(max = 300.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(Color(0xCC6B1D24))
+                    .border(1.dp, Color(0x66FF8A80), RoundedCornerShape(10.dp))
+                    .padding(horizontal = 18.dp, vertical = 12.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
                     text = state.toastMessage,
-                    color = Slate200,
-                    fontSize = 15.sp,
+                    color = Color(0xFFFFEBEE),
+                    fontSize = 14.sp,
                     fontWeight = FontWeight.Medium
                 )
             }

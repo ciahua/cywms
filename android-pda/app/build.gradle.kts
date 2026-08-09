@@ -11,8 +11,8 @@ android {
         applicationId = "com.chenyang.cywms"
         minSdk = 26
         targetSdk = 34
-        versionCode = 10010
-        versionName = "v1.0.10"
+        versionCode = 10011
+        versionName = "v1.0.11"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
