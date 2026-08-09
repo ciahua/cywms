@@ -153,6 +153,9 @@ class UpdateRepository(
             val type = object : TypeToken<List<GhRelease>>() {}.type
             val list: List<GhRelease> = gson.fromJson(text, type) ?: emptyList()
 
+            // GitHub /releases 默认按 created_at 排序；本仓库多条 release 的 created_at 相同，
+            // 不能取列表第一项。应在带 APK 的 release 中按语义版本选最高。
+            var best: GithubReleaseInfo? = null
             for (rel in list) {
                 if (rel.draft) continue
                 val asset = rel.assets.firstOrNull {
@@ -161,7 +164,7 @@ class UpdateRepository(
                 } ?: continue
                 val url = asset.browserDownloadUrl ?: continue
                 val version = resolveVersion(rel)
-                return GithubReleaseInfo(
+                val info = GithubReleaseInfo(
                     tagName = rel.tagName.orEmpty(),
                     name = rel.name,
                     body = rel.body,
@@ -171,8 +174,12 @@ class UpdateRepository(
                     downloadUrl = url,
                     size = asset.size
                 )
+                val cur = best
+                if (cur == null || VersionCompare.isRemoteNewer(info.version, cur.version)) {
+                    best = info
+                }
             }
-            return null
+            return best
         }
     }
 

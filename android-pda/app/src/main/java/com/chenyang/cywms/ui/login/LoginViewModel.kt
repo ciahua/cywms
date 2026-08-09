@@ -171,7 +171,11 @@ class LoginViewModel(
             }
             when (val result = container.updateRepository.checkUpdate()) {
                 is UpdateCheckResult.UpToDate -> {
-                    val msg = "当前没有新版本（${result.localVersion}）"
+                    val msg = if (result.remoteVersion.isNullOrBlank()) {
+                        "当前没有新版本（${result.localVersion}）"
+                    } else {
+                        "当前已是最新（${result.localVersion}，远端 ${result.remoteVersion}）"
+                    }
                     _ui.update {
                         it.copy(
                             checkingUpdate = false,
