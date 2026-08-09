@@ -55,7 +55,9 @@ data class LoginUiState(
     /** 已是最新 / 检查失败等轻提示对话框 */
     val showInfoDialog: Boolean = false,
     val infoDialogTitle: String = "",
-    val infoDialogMessage: String = ""
+    val infoDialogMessage: String = "",
+    /** 底部轻提示（如静默检查后「已是最新」） */
+    val snackbarMessage: String? = null
 )
 
 class LoginViewModel(
@@ -128,6 +130,10 @@ class LoginViewModel(
         _ui.update { it.copy(showInfoDialog = false, infoDialogTitle = "", infoDialogMessage = "") }
     }
 
+    fun consumeSnackbar() {
+        _ui.update { it.copy(snackbarMessage = null) }
+    }
+
     fun testConnection() {
         val s = _ui.value
         viewModelScope.launch {
@@ -144,7 +150,7 @@ class LoginViewModel(
     }
 
     /**
-     * @param promptUser true=用户点击检查，有更新则弹窗；false=静默，只更新角标
+     * @param promptUser true=用户点击检查：无论是否有更新都弹窗提示；false=静默，无更新时底部轻提示
      */
     fun checkUpdate(promptUser: Boolean = false) {
         if (_ui.value.downloading) return
@@ -156,11 +162,17 @@ class LoginViewModel(
                     installMessage = null,
                     error = null,
                     showUpdateDialog = false,
-                    showInfoDialog = false
+                    showInfoDialog = false,
+                    snackbarMessage = null
                 )
             }
             when (val result = container.updateRepository.checkUpdate()) {
                 is UpdateCheckResult.UpToDate -> {
+                    val msg = if (result.remoteVersion.isNullOrBlank()) {
+                        "未找到可下载版本，当前 ${result.localVersion}"
+                    } else {
+                        "当前已是最新版本 ${result.localVersion}，无需更新"
+                    }
                     _ui.update {
                         it.copy(
                             checkingUpdate = false,
@@ -169,18 +181,12 @@ class LoginViewModel(
                             downloadUrl = null,
                             apkReady = null,
                             remoteRemark = null,
-                            updateMessage = if (result.remoteVersion.isNullOrBlank()) {
-                                "GitHub 暂无 APK，当前 ${result.localVersion}"
-                            } else {
-                                "已是最新：${result.localVersion}"
-                            },
+                            updateMessage = msg,
+                            // 点击图标：弹窗；静默检查：底部 Snackbar，同样告知用户
                             showInfoDialog = promptUser,
                             infoDialogTitle = "检查更新",
-                            infoDialogMessage = if (result.remoteVersion.isNullOrBlank()) {
-                                "未找到可下载的版本，当前为 ${result.localVersion}"
-                            } else {
-                                "当前已是最新版本\n${result.localVersion}"
-                            }
+                            infoDialogMessage = msg,
+                            snackbarMessage = if (!promptUser) msg else null
                         )
                     }
                 }
@@ -201,19 +207,27 @@ class LoginViewModel(
                             apkReady = null,
                             updateMessage = "发现新版本 ${result.remote.version}",
                             showUpdateDialog = promptUser,
-                            showInfoDialog = false
+                            showInfoDialog = false,
+                            // 静默发现更新时底部轻提示，点击图标再确认下载
+                            snackbarMessage = if (!promptUser) {
+                                "发现新版本 ${result.remote.version}，点底部图标更新"
+                            } else {
+                                null
+                            }
                         )
                     }
                 }
                 is UpdateCheckResult.Failed -> {
+                    val msg = "检查更新失败：${result.message}"
                     _ui.update {
                         it.copy(
                             checkingUpdate = false,
                             updateAvailable = false,
-                            updateMessage = "检查更新失败：${result.message}",
+                            updateMessage = msg,
                             showInfoDialog = promptUser,
                             infoDialogTitle = "检查更新",
-                            infoDialogMessage = "检查失败：${result.message}"
+                            infoDialogMessage = msg,
+                            snackbarMessage = if (!promptUser) msg else null
                         )
                     }
                 }

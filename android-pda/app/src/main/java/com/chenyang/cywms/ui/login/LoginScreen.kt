@@ -43,6 +43,9 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Snackbar
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -106,6 +109,7 @@ fun LoginRoute(
         onConfirmDownload = viewModel::confirmDownload,
         onDismissUpdateDialog = viewModel::dismissUpdateDialog,
         onDismissInfoDialog = viewModel::dismissInfoDialog,
+        onSnackbarShown = viewModel::consumeSnackbar,
         onLogin = viewModel::login
     )
 }
@@ -126,11 +130,18 @@ fun LoginScreen(
     onConfirmDownload: () -> Unit,
     onDismissUpdateDialog: () -> Unit,
     onDismissInfoDialog: () -> Unit,
+    onSnackbarShown: () -> Unit,
     onLogin: () -> Unit
 ) {
     var showPassword by remember { mutableStateOf(false) }
     var entered by remember { mutableStateOf(false) }
+    val snackbarHostState = remember { SnackbarHostState() }
     LaunchedEffect(Unit) { entered = true }
+    LaunchedEffect(state.snackbarMessage) {
+        val msg = state.snackbarMessage ?: return@LaunchedEffect
+        snackbarHostState.showSnackbar(msg)
+        onSnackbarShown()
+    }
 
     if (state.showUpdateDialog) {
         AlertDialog(
@@ -199,6 +210,22 @@ fun LoginScreen(
                         )
                     )
                 )
+        )
+
+        // 静默检查结果（含「已是最新」）底部轻提示
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .navigationBarsPadding()
+                .padding(bottom = 64.dp),
+            snackbar = { data ->
+                Snackbar(
+                    snackbarData = data,
+                    containerColor = Color(0xFF1A2438),
+                    contentColor = Slate200
+                )
+            }
         )
 
         // 底部居中的更新入口，不占用主布局
