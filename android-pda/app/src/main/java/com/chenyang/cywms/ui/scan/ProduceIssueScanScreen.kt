@@ -92,16 +92,17 @@ fun ProduceIssueScanScreen(
     val listState = rememberLazyListState()
     val timeFmt = remember { SimpleDateFormat("HH:mm:ss", Locale.getDefault()) }
 
-    fun accept(code: String, source: String) {
+    fun appendRecord(code: String) {
         val trimmed = code.trim()
         if (trimmed.isEmpty()) return
         latest = trimmed
+        wedgeBuffer = ""
         records.add(
             0,
             ScanRecord(
                 code = trimmed,
                 time = timeFmt.format(Date()),
-                source = source
+                source = "扫码"
             )
         )
         vibrateShort(context)
@@ -110,7 +111,7 @@ fun ProduceIssueScanScreen(
     LaunchedEffect(Unit) {
         focusRequester.requestFocus()
         ScanBus.events.collect { code ->
-            accept(code, "广播")
+            appendRecord(code)
         }
     }
 
@@ -181,9 +182,10 @@ fun ProduceIssueScanScreen(
                         (event.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_ENTER ||
                             event.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_NUMPAD_ENTER)
                     ) {
-                        if (wedgeBuffer.isNotBlank()) {
-                            accept(wedgeBuffer, "键盘")
-                            wedgeBuffer = ""
+                        val buf = wedgeBuffer
+                        wedgeBuffer = ""
+                        if (buf.isNotBlank()) {
+                            ScanBus.emit(buf) // 与广播共用去重，避免一枪两条
                         }
                         true
                     } else {
@@ -194,10 +196,9 @@ fun ProduceIssueScanScreen(
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
             keyboardActions = KeyboardActions(
                 onDone = {
-                    if (wedgeBuffer.isNotBlank()) {
-                        accept(wedgeBuffer, "键盘")
-                        wedgeBuffer = ""
-                    }
+                    val buf = wedgeBuffer
+                    wedgeBuffer = ""
+                    if (buf.isNotBlank()) ScanBus.emit(buf)
                 }
             ),
             textStyle = TextStyle(color = Color.Transparent, fontSize = 1.sp),
@@ -299,7 +300,7 @@ fun ProduceIssueScanScreen(
 
         HorizontalDivider(color = Color(0x22FFFFFF))
         Text(
-            text = "广播：com.service.scanner.data / ScanCode\n请在「扫描助手」中设为广播输出",
+            text = "广播：com.service.scanner.data / ScanCode\n建议扫描助手仅开广播；广播+键盘同时开时已自动去重",
             color = Slate400.copy(alpha = 0.7f),
             fontSize = 11.sp,
             modifier = Modifier.padding(12.dp)
