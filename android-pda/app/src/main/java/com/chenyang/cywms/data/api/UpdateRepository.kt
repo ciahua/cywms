@@ -203,63 +203,110 @@ class UpdateRepository(
     }
 
     fun downloadApk(downloadUrl: String, fileVersion: String): Flow<DownloadEvent> = flow {
-        try {
-            val dir = File(appContext.cacheDir, "apk_updates").apply { mkdirs() }
-            val safeName = fileVersion.replace(Regex("""[^\w.\-]+"""), "_") + ".apk"
-            val outFile = File(dir, safeName)
-            if (outFile.exists()) outFile.delete()
+        val dir = File(appContext.cacheDir, "apk_updates").apply { mkdirs() }
+        val safeName = fileVersion.replace(Regex("""[^\w.\-]+"""), "_") + ".apk"
+        val outFile = File(dir, safeName)
+        if (outFile.exists()) outFile.delete()
 
-            val request = Request.Builder()
-                .url(downloadUrl)
-                .header("User-Agent", "cywms-pda/${BuildConfig.VERSION_NAME}")
-                .header("Accept", "application/octet-stream")
-                .get()
-                .build()
-
-            http.newCall(request).execute().use { resp ->
-                if (!resp.isSuccessful) {
-                    emit(DownloadEvent.Failed("下载失败 HTTP ${resp.code}"))
-                    return@flow
+        val candidates = downloadUrlCandidates(downloadUrl)
+        val errors = mutableListOf<String>()
+        for ((index, url) in candidates.withIndex()) {
+            try {
+                if (index == 0) {
+                    emit(DownloadEvent.Progress(0, 0, -1))
                 }
-                val body = resp.body ?: run {
-                    emit(DownloadEvent.Failed("下载内容为空"))
-                    return@flow
+                val ok = downloadToFile(url, outFile) { percent, downloaded, total ->
+                    emit(DownloadEvent.Progress(percent, downloaded, total))
                 }
-                val total = body.contentLength()
-                var downloaded = 0L
-                var lastEmit = -1
-                body.byteStream().use { input ->
-                    outFile.outputStream().use { output ->
-                        val buf = ByteArray(DEFAULT_BUFFER_SIZE)
-                        while (true) {
-                            val read = input.read(buf)
-                            if (read <= 0) break
-                            output.write(buf, 0, read)
-                            downloaded += read
-                            val percent = if (total > 0) {
-                                ((downloaded * 100) / total).toInt().coerceIn(0, 100)
-                            } else {
-                                -1
-                            }
-                            if (percent != lastEmit) {
-                                lastEmit = percent
-                                emit(DownloadEvent.Progress(percent, downloaded, total))
-                            }
-                        }
-                        output.flush()
+                if (ok) {
+                    if (outFile.length() < 1024) {
+                        outFile.delete()
+                        errors += "文件过小"
+                        continue
                     }
-                }
-                if (outFile.length() < 1024) {
-                    outFile.delete()
-                    emit(DownloadEvent.Failed("下载文件过小，可能失败"))
-                } else {
                     emit(DownloadEvent.Success(outFile))
+                    return@flow
+                }
+            } catch (e: Exception) {
+                outFile.delete()
+                errors += "${shortHost(url)}: ${e.message ?: e.javaClass.simpleName}"
+            }
+        }
+        emit(
+            DownloadEvent.Failed(
+                errors.lastOrNull() ?: "下载失败（已尝试 ${candidates.size} 个地址）"
+            )
+        )
+    }.flowOn(Dispatchers.IO)
+
+    /**
+     * GitHub 直链在部分网络不可达，依次尝试镜像。
+     */
+    private fun downloadUrlCandidates(original: String): List<String> {
+        val urls = linkedSetOf(original.trim())
+        if (original.contains("github") || original.contains("githubusercontent")) {
+            urls += "https://ghfast.top/$original"
+            urls += "https://gh-proxy.com/$original"
+            urls += "https://mirror.ghproxy.com/$original"
+        }
+        return urls.filter { it.isNotBlank() }
+    }
+
+    private fun shortHost(url: String): String =
+        runCatching { java.net.URI(url).host ?: url }.getOrDefault(url).take(40)
+
+    private suspend fun downloadToFile(
+        url: String,
+        outFile: File,
+        onProgress: suspend (percent: Int, downloaded: Long, total: Long) -> Unit
+    ): Boolean {
+        val request = Request.Builder()
+            .url(url)
+            .header("User-Agent", "cywms-pda/${BuildConfig.VERSION_NAME}")
+            .header("Accept", "application/octet-stream,*/*")
+            .get()
+            .build()
+
+        http.newCall(request).execute().use { resp ->
+            if (!resp.isSuccessful) {
+                error("HTTP ${resp.code}")
+            }
+            val body = resp.body ?: error("内容为空")
+            val total = body.contentLength()
+            var downloaded = 0L
+            var lastPercent = -2
+            var lastBytesEmit = 0L
+            onProgress(0, 0, total)
+            body.byteStream().use { input ->
+                outFile.outputStream().use { output ->
+                    val buf = ByteArray(DEFAULT_BUFFER_SIZE)
+                    while (true) {
+                        val read = input.read(buf)
+                        if (read <= 0) break
+                        output.write(buf, 0, read)
+                        downloaded += read
+                        val percent = if (total > 0) {
+                            ((downloaded * 100) / total).toInt().coerceIn(0, 100)
+                        } else {
+                            -1
+                        }
+                        val shouldEmit = percent != lastPercent ||
+                            downloaded - lastBytesEmit >= 256 * 1024L
+                        if (shouldEmit) {
+                            lastPercent = percent
+                            lastBytesEmit = downloaded
+                            onProgress(percent, downloaded, total)
+                        }
+                    }
+                    output.flush()
                 }
             }
-        } catch (e: Exception) {
-            emit(DownloadEvent.Failed(e.message ?: "下载异常"))
+            if (total > 0 && downloaded < total) {
+                error("不完整 $downloaded/$total")
+            }
+            return downloaded > 0
         }
-    }.flowOn(Dispatchers.IO)
+    }
 
     fun installApk(context: Context, apkFile: File): Result<Unit> = runCatching {
         val uri: Uri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {

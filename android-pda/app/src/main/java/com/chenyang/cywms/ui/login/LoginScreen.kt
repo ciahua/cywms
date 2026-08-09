@@ -474,12 +474,33 @@ private fun QuietUpdateIcon(
     ) {
         when {
             state.downloading -> {
-                // 不确定进度转圈；百分比为 0 时用确定性指示器会看起来像固定圆圈
-                CircularProgressIndicator(
-                    modifier = Modifier.size(22.dp),
-                    strokeWidth = 2.dp,
-                    color = Amber500
-                )
+                val pct = state.downloadPercent
+                Box(
+                    modifier = Modifier.size(28.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (pct < 0) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.fillMaxSize(),
+                            strokeWidth = 2.dp,
+                            color = Amber500
+                        )
+                    } else {
+                        CircularProgressIndicator(
+                            progress = { (pct.coerceIn(0, 100)) / 100f },
+                            modifier = Modifier.fillMaxSize(),
+                            strokeWidth = 2.dp,
+                            color = Amber500,
+                            trackColor = Slate400.copy(alpha = 0.28f)
+                        )
+                        Text(
+                            text = "$pct",
+                            color = Amber500,
+                            fontSize = 8.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
             }
             state.checkingUpdate -> {
                 CircularProgressIndicator(

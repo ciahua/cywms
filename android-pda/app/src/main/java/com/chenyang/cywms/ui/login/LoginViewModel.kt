@@ -230,7 +230,16 @@ class LoginViewModel(
     }
 
     fun startDownload() {
-        val url = _ui.value.downloadUrl ?: return
+        val url = _ui.value.downloadUrl
+        if (url.isNullOrBlank()) {
+            _ui.update {
+                it.copy(
+                    showToast = true,
+                    toastMessage = "没有可下载地址，请再点一次检查更新"
+                )
+            }
+            return
+        }
         val ver = _ui.value.remoteVersion ?: "update"
         if (_ui.value.downloading) return
         downloadJob?.cancel()
@@ -243,6 +252,7 @@ class LoginViewModel(
                     totalBytes = 0,
                     apkReady = null,
                     installMessage = null,
+                    showToast = false,
                     updateMessage = "正在下载 $ver …"
                 )
             }
@@ -250,13 +260,15 @@ class LoginViewModel(
                 when (event) {
                     is DownloadEvent.Progress -> _ui.update {
                         it.copy(
+                            downloading = true,
                             downloadPercent = event.percent,
                             downloadedBytes = event.downloaded,
                             totalBytes = event.total,
                             updateMessage = if (event.percent >= 0) {
                                 "下载中 ${event.percent}%"
                             } else {
-                                "下载中 ${event.downloaded / (1024 * 1024)} MB"
+                                val mb = event.downloaded / (1024 * 1024)
+                                "下载中 ${mb}MB"
                             }
                         )
                     }
@@ -271,6 +283,7 @@ class LoginViewModel(
                     is DownloadEvent.Failed -> _ui.update {
                         it.copy(
                             downloading = false,
+                            downloadPercent = -1,
                             updateMessage = "下载失败：${event.message}",
                             showToast = true,
                             toastMessage = "下载失败：${event.message}"
@@ -289,7 +302,9 @@ class LoginViewModel(
                 installMessage = outcome.fold(
                     onSuccess = { "已调起安装界面" },
                     onFailure = { e -> e.message ?: "无法安装" }
-                )
+                ),
+                showToast = outcome.isFailure,
+                toastMessage = outcome.exceptionOrNull()?.message ?: ""
             )
         }
     }
