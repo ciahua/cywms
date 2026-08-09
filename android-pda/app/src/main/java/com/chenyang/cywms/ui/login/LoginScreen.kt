@@ -32,6 +32,7 @@ import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.SystemUpdateAlt
 import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material.icons.outlined.VisibilityOff
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
@@ -43,6 +44,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -83,7 +85,7 @@ fun LoginRoute(
     LaunchedEffect(state.loggedIn) {
         if (state.loggedIn) onLoggedIn()
     }
-    // 下载完成后自动调起安装，无需大块 UI
+    // 用户确认下载完成后自动调起安装
     LaunchedEffect(state.apkReady) {
         if (state.apkReady != null) {
             viewModel.installDownloaded()
@@ -100,13 +102,10 @@ fun LoginRoute(
         onRemember = viewModel::onRemember,
         onToggleAdvanced = viewModel::toggleAdvanced,
         onTest = viewModel::testConnection,
-        onUpdateIconClick = {
-            when {
-                state.apkReady != null -> viewModel.installDownloaded()
-                state.updateAvailable && !state.downloading -> viewModel.startDownload()
-                else -> viewModel.checkUpdate(autoDownload = true)
-            }
-        },
+        onUpdateIconClick = viewModel::onUpdateIconClick,
+        onConfirmDownload = viewModel::confirmDownload,
+        onDismissUpdateDialog = viewModel::dismissUpdateDialog,
+        onDismissInfoDialog = viewModel::dismissInfoDialog,
         onLogin = viewModel::login
     )
 }
@@ -124,11 +123,62 @@ fun LoginScreen(
     onToggleAdvanced: () -> Unit,
     onTest: () -> Unit,
     onUpdateIconClick: () -> Unit,
+    onConfirmDownload: () -> Unit,
+    onDismissUpdateDialog: () -> Unit,
+    onDismissInfoDialog: () -> Unit,
     onLogin: () -> Unit
 ) {
     var showPassword by remember { mutableStateOf(false) }
     var entered by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { entered = true }
+
+    if (state.showUpdateDialog) {
+        AlertDialog(
+            onDismissRequest = onDismissUpdateDialog,
+            title = { Text("发现新版本") },
+            text = {
+                Column {
+                    Text("当前：${state.localVersion}")
+                    Text("最新：${state.remoteVersion.orEmpty()}")
+                    state.remoteRemark?.let {
+                        Spacer(Modifier.height(8.dp))
+                        Text(it, color = Color(0xFF666666), fontSize = 13.sp)
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Text("是否下载并安装？取消则继续使用当前版本。")
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = onConfirmDownload) {
+                    Text("下载更新", color = Amber500, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = onDismissUpdateDialog) {
+                    Text("暂不更新", color = Slate400)
+                }
+            },
+            containerColor = Color(0xFF1A2438),
+            titleContentColor = Slate200,
+            textContentColor = Slate200
+        )
+    }
+
+    if (state.showInfoDialog) {
+        AlertDialog(
+            onDismissRequest = onDismissInfoDialog,
+            title = { Text(state.infoDialogTitle) },
+            text = { Text(state.infoDialogMessage) },
+            confirmButton = {
+                TextButton(onClick = onDismissInfoDialog) {
+                    Text("知道了", color = Amber500)
+                }
+            },
+            containerColor = Color(0xFF1A2438),
+            titleContentColor = Slate200,
+            textContentColor = Slate200
+        )
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Image(

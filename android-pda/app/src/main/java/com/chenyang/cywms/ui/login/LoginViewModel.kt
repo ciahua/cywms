@@ -49,7 +49,13 @@ data class LoginUiState(
     val downloadedBytes: Long = 0,
     val totalBytes: Long = 0,
     val apkReady: File? = null,
-    val installMessage: String? = null
+    val installMessage: String? = null,
+    /** 发现新版本后弹出确认下载对话框 */
+    val showUpdateDialog: Boolean = false,
+    /** 已是最新 / 检查失败等轻提示对话框 */
+    val showInfoDialog: Boolean = false,
+    val infoDialogTitle: String = "",
+    val infoDialogMessage: String = ""
 )
 
 class LoginViewModel(
@@ -80,8 +86,8 @@ class LoginViewModel(
                     localVersion = VersionCompare.localVersion()
                 )
             }
-            // 进入登录页自动检查 GitHub Release（有新版本则自动下载）
-            checkUpdate(autoDownload = true)
+            // 进入登录页静默检查（仅角标，不弹窗、不下载）
+            checkUpdate(promptUser = false)
         }
     }
 
@@ -93,6 +99,34 @@ class LoginViewModel(
     fun onPassword(v: String) = _ui.update { it.copy(password = v, error = null) }
     fun onRemember(v: Boolean) = _ui.update { it.copy(rememberAccount = v) }
     fun toggleAdvanced() = _ui.update { it.copy(advancedOpen = !it.advancedOpen) }
+
+    /** 点击右上角更新图标：检查并在有新版本时弹窗询问 */
+    fun onUpdateIconClick() {
+        val s = _ui.value
+        when {
+            s.downloading || s.checkingUpdate -> return
+            s.apkReady != null -> installDownloaded()
+            else -> checkUpdate(promptUser = true)
+        }
+    }
+
+    fun dismissUpdateDialog() {
+        _ui.update {
+            it.copy(
+                showUpdateDialog = false,
+                updateMessage = "已取消下载，继续使用 ${it.localVersion}"
+            )
+        }
+    }
+
+    fun confirmDownload() {
+        _ui.update { it.copy(showUpdateDialog = false) }
+        startDownload()
+    }
+
+    fun dismissInfoDialog() {
+        _ui.update { it.copy(showInfoDialog = false, infoDialogTitle = "", infoDialogMessage = "") }
+    }
 
     fun testConnection() {
         val s = _ui.value
@@ -109,7 +143,10 @@ class LoginViewModel(
         }
     }
 
-    fun checkUpdate(autoDownload: Boolean = false) {
+    /**
+     * @param promptUser true=用户点击检查，有更新则弹窗；false=静默，只更新角标
+     */
+    fun checkUpdate(promptUser: Boolean = false) {
         if (_ui.value.downloading) return
         viewModelScope.launch {
             _ui.update {
@@ -117,7 +154,9 @@ class LoginViewModel(
                     checkingUpdate = true,
                     updateMessage = null,
                     installMessage = null,
-                    error = null
+                    error = null,
+                    showUpdateDialog = false,
+                    showInfoDialog = false
                 )
             }
             when (val result = container.updateRepository.checkUpdate()) {
@@ -134,6 +173,13 @@ class LoginViewModel(
                                 "GitHub 暂无 APK，当前 ${result.localVersion}"
                             } else {
                                 "已是最新：${result.localVersion}"
+                            },
+                            showInfoDialog = promptUser,
+                            infoDialogTitle = "检查更新",
+                            infoDialogMessage = if (result.remoteVersion.isNullOrBlank()) {
+                                "未找到可下载的版本，当前为 ${result.localVersion}"
+                            } else {
+                                "当前已是最新版本\n${result.localVersion}"
                             }
                         )
                     }
@@ -141,8 +187,10 @@ class LoginViewModel(
                 is UpdateCheckResult.Available -> {
                     val remark = listOfNotNull(
                         result.remote.name,
-                        result.remote.body?.lineSequence()?.firstOrNull { it.isNotBlank() }
-                    ).distinct().joinToString(" · ").ifBlank { null }
+                        result.remote.body?.lineSequence()?.firstOrNull {
+                            it.isNotBlank() && !it.startsWith("VERSION=", ignoreCase = true)
+                        }
+                    ).distinct().joinToString("\n").ifBlank { null }
                     _ui.update {
                         it.copy(
                             checkingUpdate = false,
@@ -151,11 +199,10 @@ class LoginViewModel(
                             remoteRemark = remark,
                             downloadUrl = result.remote.downloadUrl,
                             apkReady = null,
-                            updateMessage = "发现新版本 ${result.remote.version}（GitHub）"
+                            updateMessage = "发现新版本 ${result.remote.version}",
+                            showUpdateDialog = promptUser,
+                            showInfoDialog = false
                         )
-                    }
-                    if (autoDownload) {
-                        startDownload()
                     }
                 }
                 is UpdateCheckResult.Failed -> {
@@ -163,7 +210,10 @@ class LoginViewModel(
                         it.copy(
                             checkingUpdate = false,
                             updateAvailable = false,
-                            updateMessage = "检查更新失败：${result.message}"
+                            updateMessage = "检查更新失败：${result.message}",
+                            showInfoDialog = promptUser,
+                            infoDialogTitle = "检查更新",
+                            infoDialogMessage = "检查失败：${result.message}"
                         )
                     }
                 }
@@ -185,7 +235,7 @@ class LoginViewModel(
                     totalBytes = 0,
                     apkReady = null,
                     installMessage = null,
-                    updateMessage = "正在从 GitHub 下载 $ver …"
+                    updateMessage = "正在下载 $ver …"
                 )
             }
             container.updateRepository.downloadApk(url, ver).collect { event ->
@@ -207,13 +257,16 @@ class LoginViewModel(
                             downloading = false,
                             downloadPercent = 100,
                             apkReady = event.apkFile,
-                            updateMessage = "下载完成，可安装 ${ver}"
+                            updateMessage = "下载完成，正在安装…"
                         )
                     }
                     is DownloadEvent.Failed -> _ui.update {
                         it.copy(
                             downloading = false,
-                            updateMessage = "下载失败：${event.message}"
+                            updateMessage = "下载失败：${event.message}",
+                            showInfoDialog = true,
+                            infoDialogTitle = "下载失败",
+                            infoDialogMessage = event.message
                         )
                     }
                 }
