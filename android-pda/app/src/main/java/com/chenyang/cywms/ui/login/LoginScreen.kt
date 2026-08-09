@@ -167,15 +167,16 @@ fun LoginScreen(
                     Text(
                         text = "PDA 仓储作业终端",
                         color = Slate400,
-                        fontSize = 16.sp
+                        fontSize = 15.sp
                     )
                     Text(
-                        text = "当前版本 ${state.localVersion}",
-                        color = Slate400,
-                        fontSize = 12.sp,
-                        modifier = Modifier.padding(top = 4.dp)
+                        text = "版本 ${state.localVersion}",
+                        color = Amber500,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(top = 8.dp)
                     )
-                    Spacer(Modifier.height(20.dp))
+                    Spacer(Modifier.height(18.dp))
 
                     UpdateBanner(
                         state = state,

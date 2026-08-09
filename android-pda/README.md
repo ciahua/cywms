@@ -27,12 +27,16 @@ Kotlin + Jetpack Compose 骨架：登录（可配服务器 / ngrok 代理）+ �
 
 ## 版本发布（GitHub）
 
-1. 提高 `app/build.gradle.kts` 中 `versionName`（建议 `v1.0.0_YYYYMMDD.N`）与 `versionCode`
-2. `./gradlew :app:assembleDebug`
-3. 创建 Release，**Tag** 使用 `pda-{versionName}`，例如 `pda-v1.0.0_20260809.2`
-4. 上传附件，文件名固定为 **`cywms-pda-debug.apk`**
+版本号规则：**初始 `v1.0.0`，每次发版末位 +1**（`v1.0.1`、`v1.0.2`…）。
 
-客户端会请求 `https://api.github.com/repos/ciahua/cywms/releases`，取带 `.apk` 的最新非 draft Release，按 tag 中的版本号比较。
+1. 修改 `app/build.gradle.kts`：`versionName` 末位 +1，`versionCode` 同步 +1  
+2. `./gradlew :app:assembleDebug`  
+3. Release Tag：`pda-{versionName}`（如 `pda-v1.0.1`）  
+4. 上传附件，文件名固定 **`cywms-pda-debug.apk`**
+
+适配设备：海康 5204，6.2 寸，1520×720（首页一行三格）。
+
+客户端请求 `https://api.github.com/repos/ciahua/cywms/releases`，按 semver 比较版本。
 
 ## 包名
 

@@ -43,6 +43,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -53,6 +54,9 @@ import com.chenyang.cywms.ui.theme.Navy900
 import com.chenyang.cywms.ui.theme.Slate200
 import com.chenyang.cywms.ui.theme.Slate400
 import kotlinx.coroutines.launch
+
+/** 海康 5204：6.2 寸，1520×720（竖屏按 720 宽适配），首页一行三格 */
+private const val HOME_COLUMNS = 3
 
 @Composable
 fun HomeScreen(
@@ -79,26 +83,26 @@ fun HomeScreen(
                 .fillMaxSize()
                 .statusBarsPadding()
                 .navigationBarsPadding(),
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp)
+            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp)
         ) {
             item {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(bottom = 8.dp),
+                        .padding(bottom = 6.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = "辰阳电子 WMS",
                             color = Slate200,
-                            fontSize = 22.sp,
+                            fontSize = 18.sp,
                             fontWeight = FontWeight.Bold
                         )
                         Text(
                             text = displayName.ifBlank { "操作员" },
                             color = Slate400,
-                            fontSize = 14.sp
+                            fontSize = 12.sp
                         )
                     }
                     IconButton(onClick = onLogout) {
@@ -112,8 +116,8 @@ fun HomeScreen(
                 Text(
                     text = "选择作业模块",
                     color = Slate400,
-                    fontSize = 13.sp,
-                    modifier = Modifier.padding(bottom = 12.dp)
+                    fontSize = 12.sp,
+                    modifier = Modifier.padding(bottom = 8.dp)
                 )
             }
 
@@ -122,13 +126,13 @@ fun HomeScreen(
                     visible = entered,
                     enter = fadeIn() + slideInVertically { it / 8 }
                 ) {
-                    Column(modifier = Modifier.padding(bottom = 18.dp)) {
+                    Column(modifier = Modifier.padding(bottom = 12.dp)) {
                         Text(
                             text = group.title,
                             color = Amber500,
                             fontWeight = FontWeight.SemiBold,
-                            fontSize = 14.sp,
-                            modifier = Modifier.padding(bottom = 8.dp)
+                            fontSize = 12.sp,
+                            modifier = Modifier.padding(bottom = 6.dp)
                         )
                         ModuleGrid(
                             modules = group.modules,
@@ -143,7 +147,7 @@ fun HomeScreen(
                 }
             }
 
-            item { Spacer(Modifier.height(24.dp)) }
+            item { Spacer(Modifier.height(20.dp)) }
         }
 
         SnackbarHost(
@@ -151,7 +155,7 @@ fun HomeScreen(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .navigationBarsPadding()
-                .padding(16.dp)
+                .padding(12.dp)
         )
     }
 }
@@ -161,12 +165,12 @@ private fun ModuleGrid(
     modules: List<HomeModule>,
     onClick: (HomeModule) -> Unit
 ) {
-    val rows = modules.chunked(2)
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    val rows = modules.chunked(HOME_COLUMNS)
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         rows.forEach { row ->
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 row.forEach { module ->
                     ModuleTile(
@@ -175,7 +179,7 @@ private fun ModuleGrid(
                         modifier = Modifier.weight(1f)
                     )
                 }
-                if (row.size == 1) {
+                repeat(HOME_COLUMNS - row.size) {
                     Spacer(modifier = Modifier.weight(1f))
                 }
             }
@@ -191,18 +195,19 @@ private fun ModuleTile(
 ) {
     Column(
         modifier = modifier
-            .aspectRatio(1.35f)
-            .clip(RoundedCornerShape(16.dp))
+            .aspectRatio(0.92f)
+            .clip(RoundedCornerShape(10.dp))
             .background(Navy700)
-            .border(1.dp, Color(0x22FFFFFF), RoundedCornerShape(16.dp))
+            .border(1.dp, Color(0x22FFFFFF), RoundedCornerShape(10.dp))
             .clickable(onClick = onClick)
-            .padding(14.dp),
-        verticalArrangement = Arrangement.SpaceBetween
+            .padding(horizontal = 6.dp, vertical = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
     ) {
         Box(
             modifier = Modifier
-                .size(40.dp)
-                .clip(RoundedCornerShape(12.dp))
+                .size(28.dp)
+                .clip(RoundedCornerShape(8.dp))
                 .background(Color(0x33F5A623)),
             contentAlignment = Alignment.Center
         ) {
@@ -210,25 +215,18 @@ private fun ModuleTile(
                 imageVector = module.icon,
                 contentDescription = null,
                 tint = Amber500,
-                modifier = Modifier.size(22.dp)
+                modifier = Modifier.size(16.dp)
             )
         }
-        Column {
-            Text(
-                text = module.title,
-                color = Slate200,
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 15.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            Text(
-                text = module.subtitle,
-                color = Slate400,
-                fontSize = 12.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
+        Spacer(Modifier.height(6.dp))
+        Text(
+            text = module.title,
+            color = Slate200,
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 12.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = TextAlign.Center
+        )
     }
 }

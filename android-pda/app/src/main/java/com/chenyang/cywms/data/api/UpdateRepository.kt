@@ -48,30 +48,38 @@ sealed class DownloadEvent {
 object VersionCompare {
     fun localVersion(): String = BuildConfig.VERSION_NAME
 
-    /** 从 v1.0.0_20251117.1 / pda-v1.0.0_20251117.1 提取可比较键 */
-    fun sortKey(version: String): String {
-        val m = Regex("""(\d{8})(?:\.(\d+))?""").findAll(version).lastOrNull()
-        return if (m != null) {
-            val day = m.groupValues[1]
-            val rev = m.groupValues.getOrNull(2)?.ifBlank { null } ?: "0"
-            "$day.${rev.padStart(4, '0')}"
-        } else {
-            version.trim().lowercase()
-        }
+    /**
+     * 版本规则：v1.0.0 起，每次发版末位 +1（v1.0.1、v1.0.2…）
+     * 比较键：MAJOR*1_000_000 + MINOR*1_000 + PATCH
+     */
+    fun sortKey(version: String): Long {
+        val m = Regex("""v?(\d+)\.(\d+)\.(\d+)""").find(version.trim())
+            ?: return -1L
+        val major = m.groupValues[1].toLongOrNull() ?: 0L
+        val minor = m.groupValues[2].toLongOrNull() ?: 0L
+        val patch = m.groupValues[3].toLongOrNull() ?: 0L
+        return major * 1_000_000L + minor * 1_000L + patch
     }
 
     fun normalizeTag(tagOrName: String): String {
-        return tagOrName.trim()
+        val raw = tagOrName.trim()
             .removePrefix("pda-")
             .removePrefix("android-pda-")
             .removePrefix("release-")
+        val semver = Regex("""v?\d+\.\d+\.\d+""").find(raw)?.value ?: return raw
+        return if (semver.startsWith("v")) semver else "v$semver"
     }
 
     fun isRemoteNewer(remote: String, local: String): Boolean {
         if (remote.isBlank()) return false
         if (local.isBlank()) return true
-        if (remote.trim().equals(local.trim(), ignoreCase = true)) return false
-        return sortKey(remote) > sortKey(local)
+        val r = normalizeTag(remote)
+        val l = normalizeTag(local)
+        if (r.equals(l, ignoreCase = true)) return false
+        val rk = sortKey(r)
+        val lk = sortKey(l)
+        if (rk < 0 || lk < 0) return r > l
+        return rk > lk
     }
 }
 
@@ -169,22 +177,22 @@ class UpdateRepository(
     }
 
     /**
-     * 版本优先取 tag（pda-v1.0.0_20260809.1 → v1.0.0_20260809.1），
-     * 否则取 release name；再否则用发布日期。
+     * 版本优先取 tag（pda-v1.0.0 → v1.0.0），
+     * 否则取 release name / body 中的 VERSION=。
      */
     private fun resolveVersion(rel: GhRelease): String {
         val fromTag = VersionCompare.normalizeTag(rel.tagName.orEmpty())
-        if (fromTag.contains(Regex("""\d{8}"""))) return fromTag
+        if (VersionCompare.sortKey(fromTag) >= 0) return fromTag
         val fromName = VersionCompare.normalizeTag(rel.name.orEmpty())
-        if (fromName.contains(Regex("""\d{8}"""))) return fromName
-        // body 首行 VERSION=xxx
+        if (VersionCompare.sortKey(fromName) >= 0) return fromName
         rel.body?.lineSequence()?.forEach { line ->
             val m = Regex("""(?i)^VERSION\s*=\s*(.+)$""").find(line.trim())
-            if (m != null) return m.groupValues[1].trim()
+            if (m != null) {
+                val v = VersionCompare.normalizeTag(m.groupValues[1].trim())
+                if (VersionCompare.sortKey(v) >= 0) return v
+            }
         }
-        if (fromTag.isNotBlank() && fromTag != "pda-scaffold-apk") return fromTag
-        val day = rel.publishedAt?.take(10)?.replace("-", "").orEmpty()
-        return if (day.length == 8) "v0.0.0_$day.0" else fromTag.ifBlank { "unknown" }
+        return fromTag.ifBlank { "v0.0.0" }
     }
 
     fun downloadApk(downloadUrl: String, fileVersion: String): Flow<DownloadEvent> = flow {
