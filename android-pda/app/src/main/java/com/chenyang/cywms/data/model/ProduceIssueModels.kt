@@ -100,3 +100,20 @@ fun String?.asQty(): Double =
 fun formatQty(value: Double): String {
     return if (value % 1.0 == 0.0) value.toLong().toString() else value.toString()
 }
+
+/** Jeecg 分页 */
+data class JeecgPage<T>(
+    val records: List<T> = emptyList(),
+    val total: Long = 0,
+    val size: Long = 0,
+    val current: Long = 0
+)
+
+/** 库存台账简要字段（余量回退查询用） */
+data class WarehouseLogRow(
+    val id: String? = null,
+    val barcode: String? = null,
+    val matcode: String? = null,
+    val restqty: String? = null,
+    val sku: String? = null
+)

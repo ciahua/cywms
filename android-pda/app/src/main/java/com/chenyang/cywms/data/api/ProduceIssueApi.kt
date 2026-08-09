@@ -1,9 +1,11 @@
 package com.chenyang.cywms.data.api
 
 import com.chenyang.cywms.data.model.ApiResult
+import com.chenyang.cywms.data.model.JeecgPage
 import com.chenyang.cywms.data.model.ProduceMaterialBarcodePda
 import com.chenyang.cywms.data.model.Shengchanlingliao
 import com.chenyang.cywms.data.model.ShengchanlingliaoDetail
+import com.chenyang.cywms.data.model.WarehouseLogRow
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.POST
@@ -80,4 +82,12 @@ interface ProduceIssueApi {
         @Query("period") period: String,
         @Query("requestqty") requestQty: String
     ): ApiResult<Boolean>
+
+    /** 按条码查台账（领料 getrestqty 为 0 时回退取可用余量） */
+    @GET("jeecg-boot/warehouselog/warehouselog/list")
+    suspend fun warehouseListByBarcode(
+        @Query("barcode") barcode: String,
+        @Query("pageNo") pageNo: Int = 1,
+        @Query("pageSize") pageSize: Int = 50
+    ): ApiResult<JeecgPage<WarehouseLogRow>>
 }

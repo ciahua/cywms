@@ -4,6 +4,8 @@ import com.chenyang.cywms.data.model.ApiResult
 import com.chenyang.cywms.data.model.ProduceMaterialBarcodePda
 import com.chenyang.cywms.data.model.Shengchanlingliao
 import com.chenyang.cywms.data.model.ShengchanlingliaoDetail
+import com.chenyang.cywms.data.model.asQty
+import com.chenyang.cywms.data.model.formatQty
 import com.chenyang.cywms.data.prefs.SessionPrefs
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -70,13 +72,30 @@ class ProduceIssueRepository(
             }
         }
 
+    /**
+     * 领料余量：优先 produce getrestqty。
+     * 若为 0，回退台账 list（同条码多行时取最大正余量，避免 500+0 被接口合成 0）。
+     */
     suspend fun getRestQty(barcode: String): Result<String> = withContext(Dispatchers.IO) {
         runCatching {
             val resp = api().getRestQty(barcode)
-            resp.requireOk("查询余量失败")
-            resp.result?.takeIf { it.isNotBlank() }
-                ?: resp.message?.takeIf { it.isNotBlank() }
-                ?: "0"
+            if (resp.success) {
+                val direct = resp.result?.takeIf { it.isNotBlank() }
+                    ?: resp.message?.takeIf { it.isNotBlank() }
+                    ?: "0"
+                if (direct.asQty() > 0) return@runCatching direct
+            }
+            val page = api().warehouseListByBarcode(barcode)
+            if (!page.success) {
+                if (resp.success) return@runCatching "0"
+                error(page.message?.ifBlank { null } ?: "查询余量失败")
+            }
+            val maxRest = page.result?.records
+                ?.map { it.restqty.asQty() }
+                ?.filter { it > 0 }
+                ?.maxOrNull()
+                ?: 0.0
+            formatQty(maxRest)
         }
     }
 
@@ -88,14 +107,16 @@ class ProduceIssueRepository(
     ): Result<Boolean> = withContext(Dispatchers.IO) {
         runCatching {
             val p = period.ifBlank { "0" }
-            val resp = if (requestQty.isNotBlank()) {
-                api().checkInFifo1(barcode, matcode, p, requestQty)
-            } else {
-                api().checkInFifo(barcode, matcode, p)
+            // checkinfifo1 在部分条码上会误返 false；以 checkinfifo 为准，1 仅作增强
+            val basic = api().checkInFifo(barcode, matcode, p)
+            if (!basic.success) return@runCatching true
+            if (basic.result == false) return@runCatching false
+            if (requestQty.isNotBlank()) {
+                val withQty = api().checkInFifo1(barcode, matcode, p, requestQty)
+                // 1 失败或 false 时不覆盖已通过的 basic
+                if (withQty.success && withQty.result == true) return@runCatching true
             }
-            // 部分环境未配 FIFO 时接口可能失败：不阻断主流程，记为通过
-            if (!resp.success) return@runCatching true
-            resp.result != false
+            true
         }
     }
 

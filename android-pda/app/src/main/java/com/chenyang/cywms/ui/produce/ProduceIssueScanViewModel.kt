@@ -121,12 +121,12 @@ class ProduceIssueScanViewModel(
             reject("重复扫码：$code")
             return
         }
-        if (parsed.matcode.isNotBlank() &&
-            s.matcode.isNotBlank() &&
-            !parsed.matcode.equals(s.matcode, ignoreCase = true)
-        ) {
-            // 仍以服务端 verify 为准，先本地提示加速反馈
-            // 不直接 return
+
+        val matMatched = s.matcode.isBlank() ||
+            parsed.matcode.equals(s.matcode, ignoreCase = true)
+        if (!matMatched) {
+            reject("物料不匹配：条码 ${parsed.matcode}，本行需要 ${s.matcode}")
+            return
         }
 
         val remain = s.remaining
@@ -137,16 +137,7 @@ class ProduceIssueScanViewModel(
 
         _ui.update { it.copy(validating = true, tip = "校验中…", error = null) }
 
-        val verified = container.produceIssueRepository.verify(code, s.detailId)
-            .getOrElse { e ->
-                reject(e.message ?: "校验失败")
-                return
-            }
-        if (!verified) {
-            reject("条码与物料不匹配或无效")
-            return
-        }
-
+        // 先查余量：料号已本地匹配时，不以 verify=false 误报「不匹配」
         val restStr = container.produceIssueRepository.getRestQty(code)
             .getOrElse { e ->
                 reject(e.message ?: "余量查询失败")
@@ -154,9 +145,12 @@ class ProduceIssueScanViewModel(
             }
         val rest = restStr.asQty()
         if (rest <= 0) {
-            reject("条码余量不足（$restStr）")
+            reject("条码余量为 0，无法领用（可能已领完）")
             return
         }
+
+        // 注：produceMaterialBarcode/verify 在库存双行等场景常误返 false，
+        // 料号本地已匹配且余量>0 时不再硬拦，最终以 addpda 为准。
 
         var scanQty = parsed.qty.asQty()
         if (scanQty <= 0) scanQty = rest
