@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -28,6 +29,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ExpandLess
 import androidx.compose.material.icons.outlined.ExpandMore
+import androidx.compose.material.icons.outlined.SystemUpdateAlt
 import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material3.Button
@@ -37,7 +39,6 @@ import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -82,6 +83,12 @@ fun LoginRoute(
     LaunchedEffect(state.loggedIn) {
         if (state.loggedIn) onLoggedIn()
     }
+    // 下载完成后自动调起安装，无需大块 UI
+    LaunchedEffect(state.apkReady) {
+        if (state.apkReady != null) {
+            viewModel.installDownloaded()
+        }
+    }
     LoginScreen(
         state = state,
         onHost = viewModel::onHost,
@@ -93,9 +100,13 @@ fun LoginRoute(
         onRemember = viewModel::onRemember,
         onToggleAdvanced = viewModel::toggleAdvanced,
         onTest = viewModel::testConnection,
-        onCheckUpdate = { viewModel.checkUpdate(autoDownload = false) },
-        onDownload = viewModel::startDownload,
-        onInstall = viewModel::installDownloaded,
+        onUpdateIconClick = {
+            when {
+                state.apkReady != null -> viewModel.installDownloaded()
+                state.updateAvailable && !state.downloading -> viewModel.startDownload()
+                else -> viewModel.checkUpdate(autoDownload = true)
+            }
+        },
         onLogin = viewModel::login
     )
 }
@@ -112,9 +123,7 @@ fun LoginScreen(
     onRemember: (Boolean) -> Unit,
     onToggleAdvanced: () -> Unit,
     onTest: () -> Unit,
-    onCheckUpdate: () -> Unit,
-    onDownload: () -> Unit,
-    onInstall: () -> Unit,
+    onUpdateIconClick: () -> Unit,
     onLogin: () -> Unit
 ) {
     var showPassword by remember { mutableStateOf(false) }
@@ -140,6 +149,16 @@ fun LoginScreen(
                         )
                     )
                 )
+        )
+
+        // 右上角不起眼的更新入口，不占用主布局
+        QuietUpdateIcon(
+            state = state,
+            onClick = onUpdateIconClick,
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .statusBarsPadding()
+                .padding(top = 6.dp, end = 6.dp)
         )
 
         Column(
@@ -170,22 +189,12 @@ fun LoginScreen(
                         fontSize = 15.sp
                     )
                     Text(
-                        text = "版本 ${state.localVersion}",
-                        color = Amber500,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.padding(top = 8.dp)
+                        text = state.localVersion,
+                        color = Slate400.copy(alpha = 0.75f),
+                        fontSize = 12.sp,
+                        modifier = Modifier.padding(top = 6.dp)
                     )
-                    Spacer(Modifier.height(18.dp))
-
-                    UpdateBanner(
-                        state = state,
-                        onCheckUpdate = onCheckUpdate,
-                        onDownload = onDownload,
-                        onInstall = onInstall
-                    )
-
-                    Spacer(Modifier.height(14.dp))
+                    Spacer(Modifier.height(28.dp))
 
                     GlassPanel {
                         Column(modifier = Modifier.padding(18.dp)) {
@@ -370,123 +379,44 @@ fun LoginScreen(
 }
 
 @Composable
-private fun UpdateBanner(
+private fun QuietUpdateIcon(
     state: LoginUiState,
-    onCheckUpdate: () -> Unit,
-    onDownload: () -> Unit,
-    onInstall: () -> Unit
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    GlassPanel {
-        Column(modifier = Modifier.padding(14.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = "程序更新",
-                    color = Slate200,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.weight(1f)
-                )
-                if (state.checkingUpdate || state.downloading) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(18.dp),
-                        strokeWidth = 2.dp,
-                        color = Amber500
-                    )
-                }
-            }
-
-            state.updateMessage?.let { msg ->
-                Spacer(Modifier.height(6.dp))
-                Text(
-                    text = msg,
-                    color = when {
-                        msg.contains("失败") -> DangerRed
-                        msg.contains("完成") || msg.contains("最新") -> SuccessGreen
-                        else -> Slate400
-                    },
-                    fontSize = 13.sp
+    val busy = state.checkingUpdate || state.downloading
+    val hasUpdate = state.updateAvailable || state.apkReady != null
+    Box(
+        modifier = modifier
+            .size(40.dp)
+            .clip(CircleShape)
+            .clickable(enabled = !busy, onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        when {
+            busy -> {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(18.dp),
+                    strokeWidth = 2.dp,
+                    color = Slate400.copy(alpha = 0.7f)
                 )
             }
-
-            state.remoteRemark?.takeIf { state.updateAvailable }?.let { remark ->
-                Text(
-                    text = remark,
-                    color = Slate400,
-                    fontSize = 12.sp,
-                    modifier = Modifier.padding(top = 2.dp)
+            else -> {
+                Icon(
+                    imageVector = Icons.Outlined.SystemUpdateAlt,
+                    contentDescription = "检查更新",
+                    tint = Slate400.copy(alpha = if (hasUpdate) 0.95f else 0.45f),
+                    modifier = Modifier.size(20.dp)
                 )
-            }
-
-            if (state.downloading) {
-                Spacer(Modifier.height(10.dp))
-                if (state.downloadPercent >= 0) {
-                    LinearProgressIndicator(
-                        progress = { state.downloadPercent / 100f },
+                if (hasUpdate) {
+                    Box(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .height(6.dp)
-                            .clip(RoundedCornerShape(3.dp)),
-                        color = Amber500,
-                        trackColor = Color(0x33FFFFFF)
+                            .align(Alignment.TopEnd)
+                            .padding(top = 6.dp, end = 6.dp)
+                            .size(7.dp)
+                            .clip(CircleShape)
+                            .background(Amber500)
                     )
-                } else {
-                    LinearProgressIndicator(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(6.dp)
-                            .clip(RoundedCornerShape(3.dp)),
-                        color = Amber500,
-                        trackColor = Color(0x33FFFFFF)
-                    )
-                }
-            }
-
-            state.installMessage?.let { msg ->
-                Spacer(Modifier.height(6.dp))
-                Text(
-                    text = msg,
-                    color = if (msg.contains("无法") || msg.contains("请先")) DangerRed else SuccessGreen,
-                    fontSize = 12.sp
-                )
-            }
-
-            Spacer(Modifier.height(10.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(
-                    onClick = onCheckUpdate,
-                    enabled = !state.checkingUpdate && !state.downloading,
-                    modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Slate200)
-                ) {
-                    Text("检查更新", fontSize = 13.sp)
-                }
-                when {
-                    state.apkReady != null -> {
-                        Button(
-                            onClick = onInstall,
-                            modifier = Modifier.weight(1f),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = Amber500,
-                                contentColor = Navy900
-                            )
-                        ) {
-                            Text("安装更新", fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                        }
-                    }
-                    state.updateAvailable && !state.downloading -> {
-                        Button(
-                            onClick = onDownload,
-                            modifier = Modifier.weight(1f),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = Amber500,
-                                contentColor = Navy900
-                            )
-                        ) {
-                            Text("下载更新", fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                        }
-                    }
-                    else -> {
-                        Spacer(modifier = Modifier.weight(1f))
-                    }
                 }
             }
         }
