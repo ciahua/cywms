@@ -11,7 +11,6 @@ import com.chenyang.cywms.data.api.DownloadEvent
 import com.chenyang.cywms.data.api.LoginOutcome
 import com.chenyang.cywms.data.api.UpdateCheckResult
 import com.chenyang.cywms.data.api.VersionCompare
-import com.chenyang.cywms.data.model.FileDownloadRecord
 import com.chenyang.cywms.data.prefs.SessionPrefs
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -62,7 +61,6 @@ class LoginViewModel(
     val ui: StateFlow<LoginUiState> = _ui.asStateFlow()
 
     private var downloadJob: Job? = null
-    private var pendingRemote: FileDownloadRecord? = null
 
     init {
         viewModelScope.launch {
@@ -82,7 +80,7 @@ class LoginViewModel(
                     localVersion = VersionCompare.localVersion()
                 )
             }
-            // 进入登录页自动检查更新（有新版本则自动下载）
+            // 进入登录页自动检查 GitHub Release（有新版本则自动下载）
             checkUpdate(autoDownload = true)
         }
     }
@@ -112,8 +110,7 @@ class LoginViewModel(
     }
 
     fun checkUpdate(autoDownload: Boolean = false) {
-        val s = _ui.value
-        if (s.downloading) return
+        if (_ui.value.downloading) return
         viewModelScope.launch {
             _ui.update {
                 it.copy(
@@ -123,16 +120,8 @@ class LoginViewModel(
                     error = null
                 )
             }
-            when (
-                val result = container.updateRepository.checkUpdate(
-                    host = s.host,
-                    port = s.port,
-                    useHttps = s.useHttps,
-                    proxyUrl = s.proxyUrl
-                )
-            ) {
+            when (val result = container.updateRepository.checkUpdate()) {
                 is UpdateCheckResult.UpToDate -> {
-                    pendingRemote = null
                     _ui.update {
                         it.copy(
                             checkingUpdate = false,
@@ -140,8 +129,9 @@ class LoginViewModel(
                             remoteVersion = result.remoteVersion,
                             downloadUrl = null,
                             apkReady = null,
+                            remoteRemark = null,
                             updateMessage = if (result.remoteVersion.isNullOrBlank()) {
-                                "未查询到服务器版本，当前 ${result.localVersion}"
+                                "GitHub 暂无 APK，当前 ${result.localVersion}"
                             } else {
                                 "已是最新：${result.localVersion}"
                             }
@@ -149,16 +139,19 @@ class LoginViewModel(
                     }
                 }
                 is UpdateCheckResult.Available -> {
-                    pendingRemote = result.remote
+                    val remark = listOfNotNull(
+                        result.remote.name,
+                        result.remote.body?.lineSequence()?.firstOrNull { it.isNotBlank() }
+                    ).distinct().joinToString(" · ").ifBlank { null }
                     _ui.update {
                         it.copy(
                             checkingUpdate = false,
                             updateAvailable = true,
-                            remoteVersion = result.remote.fileversion,
-                            remoteRemark = result.remote.remark,
-                            downloadUrl = result.downloadUrl,
+                            remoteVersion = result.remote.version,
+                            remoteRemark = remark,
+                            downloadUrl = result.remote.downloadUrl,
                             apkReady = null,
-                            updateMessage = "发现新版本 ${result.remote.fileversion}"
+                            updateMessage = "发现新版本 ${result.remote.version}（GitHub）"
                         )
                     }
                     if (autoDownload) {
@@ -192,7 +185,7 @@ class LoginViewModel(
                     totalBytes = 0,
                     apkReady = null,
                     installMessage = null,
-                    updateMessage = "正在下载 $ver …"
+                    updateMessage = "正在从 GitHub 下载 $ver …"
                 )
             }
             container.updateRepository.downloadApk(url, ver).collect { event ->

@@ -11,5 +11,5 @@ class AppContainer(context: Context) {
     val prefs = SessionPrefs(appContext)
     val apiClient = ApiClient(prefs)
     val authRepository = AuthRepository(apiClient, prefs)
-    val updateRepository = UpdateRepository(apiClient, prefs, appContext)
+    val updateRepository = UpdateRepository(appContext)
 }

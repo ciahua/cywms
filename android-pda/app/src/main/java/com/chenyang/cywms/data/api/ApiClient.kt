@@ -88,9 +88,6 @@ class ApiClient(private val prefs: SessionPrefs) {
     @Volatile
     private var authApi: AuthApi? = null
 
-    @Volatile
-    private var updateApi: UpdateApi? = null
-
     private val logging = HttpLoggingInterceptor().apply {
         level = HttpLoggingInterceptor.Level.BASIC
     }
@@ -117,7 +114,6 @@ class ApiClient(private val prefs: SessionPrefs) {
                     .addConverterFactory(GsonConverterFactory.create())
                     .build()
                 authApi = retrofit!!.create(AuthApi::class.java)
-                updateApi = retrofit!!.create(UpdateApi::class.java)
             }
         }
     }
@@ -125,11 +121,6 @@ class ApiClient(private val prefs: SessionPrefs) {
     suspend fun authApi(): AuthApi {
         applySession(prefs.current())
         return authApi!!
-    }
-
-    suspend fun updateApi(): UpdateApi {
-        applySession(prefs.current())
-        return updateApi!!
     }
 
     suspend fun testConnection(): Result<String> = withContext(Dispatchers.IO) {

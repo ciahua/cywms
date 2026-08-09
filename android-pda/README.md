@@ -21,19 +21,18 @@ Kotlin + Jetpack Compose 骨架：登录（可配服务器 / ngrok 代理）+ �
 - `mLogin` 登录与 Token 持久化
 - 动态 BaseUrl + ngrok Header
 - 毛玻璃登录框 + 仓库背景
-- **登录页自动检查更新**：`filedownload/list1`，有新版本自动下载，可一键安装
+- **登录页自动检查更新**：从 **GitHub Releases** 拉取最新 APK，有新版本自动下载并可安装
 - 主界面 6 组 / 14 模块图标入口（业务页占位）
 - 扫码广播注册：`com.service.scanner.data` / `ScanCode`
 
-## 版本发布
+## 版本发布（GitHub）
 
-后台「文件下载」登记 PDA APK，字段：
+1. 提高 `app/build.gradle.kts` 中 `versionName`（建议 `v1.0.0_YYYYMMDD.N`）与 `versionCode`
+2. `./gradlew :app:assembleDebug`
+3. 创建 Release，**Tag** 使用 `pda-{versionName}`，例如 `pda-v1.0.0_20260809.2`
+4. 上传附件，文件名固定为 **`cywms-pda-debug.apk`**
 
-- `filename`：如 `PDA软件`
-- `fileurl`：如 `temp/xxx.apk`（相对 static 路径）
-- `fileversion`：如 `v1.0.0_20260809.2`（日期越大视为越新）
-
-客户端当前版本见 `app/build.gradle.kts` 的 `versionName`。
+客户端会请求 `https://api.github.com/repos/ciahua/cywms/releases`，取带 `.apk` 的最新非 draft Release，按 tag 中的版本号比较。
 
 ## 包名
 

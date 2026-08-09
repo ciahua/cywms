@@ -6,10 +6,9 @@ import android.net.Uri
 import android.os.Build
 import androidx.core.content.FileProvider
 import com.chenyang.cywms.BuildConfig
-import com.chenyang.cywms.data.model.ApiResult
-import com.chenyang.cywms.data.model.FileDownloadRecord
-import com.chenyang.cywms.data.model.PageResult
-import com.chenyang.cywms.data.prefs.SessionPrefs
+import com.google.gson.Gson
+import com.google.gson.annotations.SerializedName
+import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -17,27 +16,25 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
-import retrofit2.http.GET
-import retrofit2.http.Query
 import java.io.File
 import java.util.concurrent.TimeUnit
 
-interface UpdateApi {
-    @GET("jeecg-boot/filedownload/filedownload/list1")
-    suspend fun listVersions(
-        @Query("pageNo") pageNo: Int = 1,
-        @Query("pageSize") pageSize: Int = 20,
-        @Query("column") column: String = "createTime",
-        @Query("order") order: String = "desc"
-    ): ApiResult<PageResult<FileDownloadRecord>>
-}
+data class GithubReleaseInfo(
+    val tagName: String,
+    val name: String?,
+    val body: String?,
+    val publishedAt: String?,
+    val version: String,
+    val apkName: String,
+    val downloadUrl: String,
+    val size: Long
+)
 
 sealed class UpdateCheckResult {
     data class UpToDate(val localVersion: String, val remoteVersion: String?) : UpdateCheckResult()
     data class Available(
         val localVersion: String,
-        val remote: FileDownloadRecord,
-        val downloadUrl: String
+        val remote: GithubReleaseInfo
     ) : UpdateCheckResult()
     data class Failed(val message: String) : UpdateCheckResult()
 }
@@ -51,7 +48,7 @@ sealed class DownloadEvent {
 object VersionCompare {
     fun localVersion(): String = BuildConfig.VERSION_NAME
 
-    /** 从 v1.0.0_20251117.1 提取可比较键：YYYYMMDD + 序号 */
+    /** 从 v1.0.0_20251117.1 / pda-v1.0.0_20251117.1 提取可比较键 */
     fun sortKey(version: String): String {
         val m = Regex("""(\d{8})(?:\.(\d+))?""").findAll(version).lastOrNull()
         return if (m != null) {
@@ -63,6 +60,13 @@ object VersionCompare {
         }
     }
 
+    fun normalizeTag(tagOrName: String): String {
+        return tagOrName.trim()
+            .removePrefix("pda-")
+            .removePrefix("android-pda-")
+            .removePrefix("release-")
+    }
+
     fun isRemoteNewer(remote: String, local: String): Boolean {
         if (remote.isBlank()) return false
         if (local.isBlank()) return true
@@ -72,59 +76,119 @@ object VersionCompare {
 }
 
 class UpdateRepository(
-    private val apiClient: ApiClient,
-    private val prefs: SessionPrefs,
     private val appContext: Context
 ) {
-    private val downloadClient: OkHttpClient by lazy {
+    companion object {
+        const val GITHUB_OWNER = "ciahua"
+        const val GITHUB_REPO = "cywms"
+        const val APK_ASSET_NAME = "cywms-pda-debug.apk"
+        private const val RELEASES_URL =
+            "https://api.github.com/repos/$GITHUB_OWNER/$GITHUB_REPO/releases?per_page=15"
+    }
+
+    private val gson = Gson()
+
+    private val http: OkHttpClient by lazy {
         OkHttpClient.Builder()
             .connectTimeout(20, TimeUnit.SECONDS)
             .readTimeout(10, TimeUnit.MINUTES)
             .writeTimeout(60, TimeUnit.SECONDS)
+            .followRedirects(true)
+            .followSslRedirects(true)
             .build()
     }
 
-    suspend fun checkUpdate(
-        host: String,
-        port: String,
-        useHttps: Boolean,
-        proxyUrl: String
-    ): UpdateCheckResult = withContext(Dispatchers.IO) {
+    private data class GhAsset(
+        val name: String? = null,
+        @SerializedName("browser_download_url") val browserDownloadUrl: String? = null,
+        val size: Long = 0
+    )
+
+    private data class GhRelease(
+        @SerializedName("tag_name") val tagName: String? = null,
+        val name: String? = null,
+        val body: String? = null,
+        @SerializedName("published_at") val publishedAt: String? = null,
+        val draft: Boolean = false,
+        val prerelease: Boolean = false,
+        val assets: List<GhAsset> = emptyList()
+    )
+
+    suspend fun checkUpdate(): UpdateCheckResult = withContext(Dispatchers.IO) {
         runCatching {
-            prefs.saveConnection(host, port, useHttps, proxyUrl)
-            apiClient.applySession(prefs.current())
-            val api = apiClient.updateApi()
-            val body = api.listVersions()
-            if (!body.success) {
-                return@runCatching UpdateCheckResult.Failed(body.message ?: "检查更新失败")
-            }
-            val latest = body.result?.records
-                ?.firstOrNull { !it.fileurl.isNullOrBlank() && !it.fileversion.isNullOrBlank() }
+            val release = fetchLatestApkRelease()
                 ?: return@runCatching UpdateCheckResult.UpToDate(VersionCompare.localVersion(), null)
 
             val local = VersionCompare.localVersion()
-            val remoteVer = latest.fileversion.orEmpty()
+            val remoteVer = release.version
             if (!VersionCompare.isRemoteNewer(remoteVer, local)) {
                 UpdateCheckResult.UpToDate(local, remoteVer)
             } else {
-                UpdateCheckResult.Available(
-                    localVersion = local,
-                    remote = latest,
-                    downloadUrl = buildDownloadUrl(latest.fileurl!!)
-                )
+                UpdateCheckResult.Available(localVersion = local, remote = release)
             }
         }.getOrElse { UpdateCheckResult.Failed(it.message ?: "检查更新异常") }
     }
 
-    private suspend fun buildDownloadUrl(fileUrl: String): String {
-        val base = prefs.current().resolveBaseUrl().trimEnd('/')
-        val path = fileUrl.trim().removePrefix("/")
-        return "$base/jeecg-boot/sys/common/static/$path"
+    private fun fetchLatestApkRelease(): GithubReleaseInfo? {
+        val request = Request.Builder()
+            .url(RELEASES_URL)
+            .header("Accept", "application/vnd.github+json")
+            .header("User-Agent", "cywms-pda/${BuildConfig.VERSION_NAME}")
+            .get()
+            .build()
+
+        http.newCall(request).execute().use { resp ->
+            if (!resp.isSuccessful) {
+                error("GitHub HTTP ${resp.code}")
+            }
+            val text = resp.body?.string().orEmpty()
+            val type = object : TypeToken<List<GhRelease>>() {}.type
+            val list: List<GhRelease> = gson.fromJson(text, type) ?: emptyList()
+
+            for (rel in list) {
+                if (rel.draft) continue
+                val asset = rel.assets.firstOrNull {
+                    val n = it.name.orEmpty()
+                    n.equals(APK_ASSET_NAME, ignoreCase = true) || n.endsWith(".apk", ignoreCase = true)
+                } ?: continue
+                val url = asset.browserDownloadUrl ?: continue
+                val version = resolveVersion(rel)
+                return GithubReleaseInfo(
+                    tagName = rel.tagName.orEmpty(),
+                    name = rel.name,
+                    body = rel.body,
+                    publishedAt = rel.publishedAt,
+                    version = version,
+                    apkName = asset.name.orEmpty(),
+                    downloadUrl = url,
+                    size = asset.size
+                )
+            }
+            return null
+        }
+    }
+
+    /**
+     * 版本优先取 tag（pda-v1.0.0_20260809.1 → v1.0.0_20260809.1），
+     * 否则取 release name；再否则用发布日期。
+     */
+    private fun resolveVersion(rel: GhRelease): String {
+        val fromTag = VersionCompare.normalizeTag(rel.tagName.orEmpty())
+        if (fromTag.contains(Regex("""\d{8}"""))) return fromTag
+        val fromName = VersionCompare.normalizeTag(rel.name.orEmpty())
+        if (fromName.contains(Regex("""\d{8}"""))) return fromName
+        // body 首行 VERSION=xxx
+        rel.body?.lineSequence()?.forEach { line ->
+            val m = Regex("""(?i)^VERSION\s*=\s*(.+)$""").find(line.trim())
+            if (m != null) return m.groupValues[1].trim()
+        }
+        if (fromTag.isNotBlank() && fromTag != "pda-scaffold-apk") return fromTag
+        val day = rel.publishedAt?.take(10)?.replace("-", "").orEmpty()
+        return if (day.length == 8) "v0.0.0_$day.0" else fromTag.ifBlank { "unknown" }
     }
 
     fun downloadApk(downloadUrl: String, fileVersion: String): Flow<DownloadEvent> = flow {
         try {
-            val snap = prefs.current()
             val dir = File(appContext.cacheDir, "apk_updates").apply { mkdirs() }
             val safeName = fileVersion.replace(Regex("""[^\w.\-]+"""), "_") + ".apk"
             val outFile = File(dir, safeName)
@@ -132,15 +196,12 @@ class UpdateRepository(
 
             val request = Request.Builder()
                 .url(downloadUrl)
+                .header("User-Agent", "cywms-pda/${BuildConfig.VERSION_NAME}")
+                .header("Accept", "application/octet-stream")
                 .get()
-                .apply {
-                    if (snap.isNgrokProxy()) header("ngrok-skip-browser-warning", "true")
-                    val token = snap.token
-                    if (token.isNotBlank()) header("X-Access-Token", token)
-                }
                 .build()
 
-            downloadClient.newCall(request).execute().use { resp ->
+            http.newCall(request).execute().use { resp ->
                 if (!resp.isSuccessful) {
                     emit(DownloadEvent.Failed("下载失败 HTTP ${resp.code}"))
                     return@flow
