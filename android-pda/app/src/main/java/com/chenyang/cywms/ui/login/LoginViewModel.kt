@@ -132,7 +132,8 @@ class LoginViewModel(
     }
 
     fun dismissToast() {
-        _ui.update { it.copy(showToast = false, toastMessage = "") }
+        // 只关可见性，保留文案供 AnimatedVisibility 退场，避免出现空方框
+        _ui.update { it.copy(showToast = false) }
     }
 
     fun testConnection() {
@@ -304,7 +305,8 @@ class LoginViewModel(
                     onFailure = { e -> e.message ?: "无法安装" }
                 ),
                 showToast = outcome.isFailure,
-                toastMessage = outcome.exceptionOrNull()?.message ?: ""
+                toastMessage = outcome.exceptionOrNull()?.message.orEmpty()
+                    .ifBlank { if (outcome.isFailure) "无法安装" else "" }
             )
         }
     }

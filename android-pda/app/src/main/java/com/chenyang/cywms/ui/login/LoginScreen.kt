@@ -133,7 +133,14 @@ fun LoginScreen(
 ) {
     var showPassword by remember { mutableStateOf(false) }
     var entered by remember { mutableStateOf(false) }
+    // 退场动画期间仍显示上一句文案，避免清空后只剩空方框
+    var toastText by remember { mutableStateOf("") }
     LaunchedEffect(Unit) { entered = true }
+    LaunchedEffect(state.toastMessage) {
+        if (state.toastMessage.isNotBlank()) {
+            toastText = state.toastMessage
+        }
+    }
     // 短暂提示：约 2 秒后自动消失
     LaunchedEffect(state.showToast, state.toastMessage) {
         if (state.showToast && state.toastMessage.isNotBlank()) {
@@ -427,9 +434,9 @@ fun LoginScreen(
                 .padding(bottom = 12.dp)
         )
 
-        // Toast 风格提示：底部弹出，暗红半透明，区别于登录页背景
+        // Toast 风格提示：底部弹出；visible 仅绑 showToast，文案用 toastText 保证退场非空
         AnimatedVisibility(
-            visible = state.showToast && state.toastMessage.isNotBlank(),
+            visible = state.showToast && toastText.isNotBlank(),
             enter = fadeIn(tween(150)),
             exit = fadeOut(tween(200)),
             modifier = Modifier
@@ -448,7 +455,7 @@ fun LoginScreen(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = state.toastMessage,
+                    text = toastText,
                     color = Color(0xCCFFCDD2),
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Normal
