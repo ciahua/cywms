@@ -149,8 +149,10 @@ fun HomeScreen(
                             accent = group.accent,
                             onClick = { module ->
                                 onModuleClick(module)
-                                scope.launch {
-                                    snackbar.showSnackbar("「${module.title}」业务页将在后续迭代开放")
+                                if (module.id != "produce_issue") {
+                                    scope.launch {
+                                        snackbar.showSnackbar("「${module.title}」业务页将在后续迭代开放")
+                                    }
                                 }
                             }
                         )

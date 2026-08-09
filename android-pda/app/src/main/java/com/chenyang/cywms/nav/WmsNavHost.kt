@@ -20,6 +20,7 @@ import com.chenyang.cywms.data.prefs.SessionSnapshot
 import com.chenyang.cywms.ui.home.HomeScreen
 import com.chenyang.cywms.ui.login.LoginRoute
 import com.chenyang.cywms.ui.login.LoginViewModel
+import com.chenyang.cywms.ui.scan.ProduceIssueScanScreen
 import com.chenyang.cywms.ui.theme.Amber500
 import com.chenyang.cywms.ui.theme.Navy900
 import kotlinx.coroutines.launch
@@ -27,6 +28,7 @@ import kotlinx.coroutines.launch
 object Routes {
     const val LOGIN = "login"
     const val HOME = "home"
+    const val PRODUCE_ISSUE_SCAN = "produce_issue_scan"
 }
 
 @Composable
@@ -81,7 +83,17 @@ fun WmsNavHost() {
                             popUpTo(0) { inclusive = true }
                         }
                     }
+                },
+                onModuleClick = { module ->
+                    when (module.id) {
+                        "produce_issue" -> navController.navigate(Routes.PRODUCE_ISSUE_SCAN)
+                    }
                 }
+            )
+        }
+        composable(Routes.PRODUCE_ISSUE_SCAN) {
+            ProduceIssueScanScreen(
+                onBack = { navController.popBackStack() }
             )
         }
     }
