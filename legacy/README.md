@@ -1,13 +1,15 @@
 # legacy 遗留资产
 
-请将下列文件放入本目录后提交（或通过其他方式提供给开发环境）：
+## 已入库
 
-1. `app-debug_1763393133238.apk` — 江苏辰阳电子 WMS PDA 旧程序  
-2. `辰阳电子WMS_PDA_Android重建开发说明书.md` — APK 分析/重建说明书  
+| 文件 | 说明 |
+|------|------|
+| `辰阳电子WMS_PDA_Android重建开发说明书.md` | APK + JeecgBoot 3.5.5 分析说明书（权威） |
 
-可选：
+## 建议继续放入
 
-- `capture/` — 旧 App 对接真实后台的抓包（HAR / mitmproxy）
-- `keystore/` — 若需覆盖安装旧包名时的签名信息（勿提交真实密码到公开仓库）
+1. `app-debug.apk` / `app-debug_1763393133238.apk` — 旧 Flutter PDA（对照）  
+2. `capture/` — 可选抓包  
+3. 后端只读拷贝：`jeecg-module-demo`、`ShiroConfig.java`（勿提交密钥）  
 
-详见：`docs/pda-rebuild/重建开发方案.md`
+派生文档见 `docs/pda-rebuild/`。
