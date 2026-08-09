@@ -87,11 +87,27 @@ class ScannerHelper(
             val v = intent.getStringExtra(key)?.trim().orEmpty()
             if (v.isNotEmpty()) return v
         }
+        for (key in EXTRA_KEYS) {
+            val cs = intent.getCharSequenceExtra(key)?.toString()?.trim().orEmpty()
+            if (cs.isNotEmpty()) return cs
+        }
         // 个别设备用 byte[]
         for (key in EXTRA_KEYS) {
             val bytes = intent.getByteArrayExtra(key)
             if (bytes != null && bytes.isNotEmpty()) {
                 return String(bytes).trim()
+            }
+        }
+        // 兜底：扫一遍全部 extras 里的非空字符串
+        val extras = intent.extras ?: return ""
+        for (key in extras.keySet()) {
+            when (val v = extras.get(key)) {
+                is String -> if (v.trim().isNotEmpty()) return v.trim()
+                is CharSequence -> if (v.toString().trim().isNotEmpty()) return v.toString().trim()
+                is ByteArray -> if (v.isNotEmpty()) {
+                    val s = String(v).trim()
+                    if (s.isNotEmpty()) return s
+                }
             }
         }
         return ""

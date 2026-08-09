@@ -14,10 +14,10 @@ import kotlinx.coroutines.flow.asSharedFlow
 object ScanBus {
     private const val TAG = "CywmsScan"
     /** 同一条码在此窗口内只投递一次（广播+键盘几乎同时到达） */
-    private const val DEDUP_WINDOW_MS = 800L
+    private const val DEDUP_WINDOW_MS = 500L
 
     private val _events = MutableSharedFlow<String>(
-        extraBufferCapacity = 16,
+        extraBufferCapacity = 64,
         replay = 0
     )
     val events: SharedFlow<String> = _events.asSharedFlow()
