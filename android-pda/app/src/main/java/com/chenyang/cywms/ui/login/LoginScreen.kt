@@ -43,9 +43,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.Snackbar
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -69,6 +68,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.delay
 import com.chenyang.cywms.R
 import com.chenyang.cywms.ui.theme.Amber500
 import com.chenyang.cywms.ui.theme.DangerRed
@@ -108,8 +108,7 @@ fun LoginRoute(
         onUpdateIconClick = viewModel::onUpdateIconClick,
         onConfirmDownload = viewModel::confirmDownload,
         onDismissUpdateDialog = viewModel::dismissUpdateDialog,
-        onDismissInfoDialog = viewModel::dismissInfoDialog,
-        onSnackbarShown = viewModel::consumeSnackbar,
+        onDismissToast = viewModel::dismissToast,
         onLogin = viewModel::login
     )
 }
@@ -129,18 +128,18 @@ fun LoginScreen(
     onUpdateIconClick: () -> Unit,
     onConfirmDownload: () -> Unit,
     onDismissUpdateDialog: () -> Unit,
-    onDismissInfoDialog: () -> Unit,
-    onSnackbarShown: () -> Unit,
+    onDismissToast: () -> Unit,
     onLogin: () -> Unit
 ) {
     var showPassword by remember { mutableStateOf(false) }
     var entered by remember { mutableStateOf(false) }
-    val snackbarHostState = remember { SnackbarHostState() }
     LaunchedEffect(Unit) { entered = true }
-    LaunchedEffect(state.snackbarMessage) {
-        val msg = state.snackbarMessage ?: return@LaunchedEffect
-        snackbarHostState.showSnackbar(msg)
-        onSnackbarShown()
+    // 短暂提示：约 2 秒后自动消失
+    LaunchedEffect(state.showToast, state.toastMessage) {
+        if (state.showToast && state.toastMessage.isNotBlank()) {
+            delay(2000)
+            onDismissToast()
+        }
     }
 
     if (state.showUpdateDialog) {
@@ -175,22 +174,6 @@ fun LoginScreen(
         )
     }
 
-    if (state.showInfoDialog) {
-        AlertDialog(
-            onDismissRequest = onDismissInfoDialog,
-            title = { Text(state.infoDialogTitle) },
-            text = { Text(state.infoDialogMessage) },
-            confirmButton = {
-                TextButton(onClick = onDismissInfoDialog) {
-                    Text("知道了", color = Amber500)
-                }
-            },
-            containerColor = Color(0xFF1A2438),
-            titleContentColor = Slate200,
-            textContentColor = Slate200
-        )
-    }
-
     Box(modifier = Modifier.fillMaxSize()) {
         Image(
             painter = painterResource(R.drawable.bg_warehouse_charger),
@@ -212,22 +195,6 @@ fun LoginScreen(
                 )
         )
 
-        // 静默检查结果（含「已是最新」）底部轻提示
-        SnackbarHost(
-            hostState = snackbarHostState,
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .navigationBarsPadding()
-                .padding(bottom = 64.dp),
-            snackbar = { data ->
-                Snackbar(
-                    snackbarData = data,
-                    containerColor = Color(0xFF1A2438),
-                    contentColor = Slate200
-                )
-            }
-        )
-
         // 底部居中的更新入口，不占用主布局
         QuietUpdateIcon(
             state = state,
@@ -237,6 +204,32 @@ fun LoginScreen(
                 .navigationBarsPadding()
                 .padding(bottom = 12.dp)
         )
+
+        // 屏幕中央短暂提示（点击更新且无新版本等），自动消失，不被登录按钮挡住
+        AnimatedVisibility(
+            visible = state.showToast && state.toastMessage.isNotBlank(),
+            enter = fadeIn(tween(150)),
+            exit = fadeOut(tween(200)),
+            modifier = Modifier.align(Alignment.Center)
+        ) {
+            Box(
+                modifier = Modifier
+                    .padding(horizontal = 32.dp)
+                    .widthIn(max = 320.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Color(0xE61A2438))
+                    .border(1.dp, GlassStroke, RoundedCornerShape(12.dp))
+                    .padding(horizontal = 20.dp, vertical = 14.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = state.toastMessage,
+                    color = Slate200,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+        }
 
         Column(
             modifier = Modifier

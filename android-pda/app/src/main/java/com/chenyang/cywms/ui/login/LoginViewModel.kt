@@ -52,12 +52,9 @@ data class LoginUiState(
     val installMessage: String? = null,
     /** 发现新版本后弹出确认下载对话框 */
     val showUpdateDialog: Boolean = false,
-    /** 已是最新 / 检查失败等轻提示对话框 */
-    val showInfoDialog: Boolean = false,
-    val infoDialogTitle: String = "",
-    val infoDialogMessage: String = "",
-    /** 底部轻提示（如静默检查后「已是最新」） */
-    val snackbarMessage: String? = null
+    /** 点击更新后「已是最新 / 检查失败」等短暂提示（自动消失） */
+    val showToast: Boolean = false,
+    val toastMessage: String = ""
 )
 
 class LoginViewModel(
@@ -126,12 +123,8 @@ class LoginViewModel(
         startDownload()
     }
 
-    fun dismissInfoDialog() {
-        _ui.update { it.copy(showInfoDialog = false, infoDialogTitle = "", infoDialogMessage = "") }
-    }
-
-    fun consumeSnackbar() {
-        _ui.update { it.copy(snackbarMessage = null) }
+    fun dismissToast() {
+        _ui.update { it.copy(showToast = false, toastMessage = "") }
     }
 
     fun testConnection() {
@@ -150,7 +143,8 @@ class LoginViewModel(
     }
 
     /**
-     * @param promptUser true=用户点击检查：无论是否有更新都弹窗提示；false=静默，无更新时底部轻提示
+     * @param promptUser true=用户点击更新：无新版本时短暂提示；有新版本弹确认框。
+     *                   false=启动静默检查：仅角标，不弹任何文案。
      */
     fun checkUpdate(promptUser: Boolean = false) {
         if (_ui.value.downloading) return
@@ -162,8 +156,8 @@ class LoginViewModel(
                     installMessage = null,
                     error = null,
                     showUpdateDialog = false,
-                    showInfoDialog = false,
-                    snackbarMessage = null
+                    showToast = false,
+                    toastMessage = ""
                 )
             }
             when (val result = container.updateRepository.checkUpdate()) {
@@ -171,7 +165,7 @@ class LoginViewModel(
                     val msg = if (result.remoteVersion.isNullOrBlank()) {
                         "未找到可下载版本，当前 ${result.localVersion}"
                     } else {
-                        "当前已是最新版本 ${result.localVersion}，无需更新"
+                        "当前已是最新版本 ${result.localVersion}"
                     }
                     _ui.update {
                         it.copy(
@@ -182,11 +176,8 @@ class LoginViewModel(
                             apkReady = null,
                             remoteRemark = null,
                             updateMessage = msg,
-                            // 点击图标：弹窗；静默检查：底部 Snackbar，同样告知用户
-                            showInfoDialog = promptUser,
-                            infoDialogTitle = "检查更新",
-                            infoDialogMessage = msg,
-                            snackbarMessage = if (!promptUser) msg else null
+                            showToast = promptUser,
+                            toastMessage = if (promptUser) msg else ""
                         )
                     }
                 }
@@ -207,13 +198,7 @@ class LoginViewModel(
                             apkReady = null,
                             updateMessage = "发现新版本 ${result.remote.version}",
                             showUpdateDialog = promptUser,
-                            showInfoDialog = false,
-                            // 静默发现更新时底部轻提示，点击图标再确认下载
-                            snackbarMessage = if (!promptUser) {
-                                "发现新版本 ${result.remote.version}，点底部图标更新"
-                            } else {
-                                null
-                            }
+                            showToast = false
                         )
                     }
                 }
@@ -224,10 +209,8 @@ class LoginViewModel(
                             checkingUpdate = false,
                             updateAvailable = false,
                             updateMessage = msg,
-                            showInfoDialog = promptUser,
-                            infoDialogTitle = "检查更新",
-                            infoDialogMessage = msg,
-                            snackbarMessage = if (!promptUser) msg else null
+                            showToast = promptUser,
+                            toastMessage = if (promptUser) msg else ""
                         )
                     }
                 }
@@ -278,9 +261,8 @@ class LoginViewModel(
                         it.copy(
                             downloading = false,
                             updateMessage = "下载失败：${event.message}",
-                            showInfoDialog = true,
-                            infoDialogTitle = "下载失败",
-                            infoDialogMessage = event.message
+                            showToast = true,
+                            toastMessage = "下载失败：${event.message}"
                         )
                     }
                 }
