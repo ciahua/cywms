@@ -195,42 +195,6 @@ fun LoginScreen(
                 )
         )
 
-        // 底部居中的更新入口，不占用主布局
-        QuietUpdateIcon(
-            state = state,
-            onClick = onUpdateIconClick,
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .navigationBarsPadding()
-                .padding(bottom = 12.dp)
-        )
-
-        // 屏幕中央短暂提示（点击更新且无新版本等），自动消失，不被登录按钮挡住
-        AnimatedVisibility(
-            visible = state.showToast && state.toastMessage.isNotBlank(),
-            enter = fadeIn(tween(150)),
-            exit = fadeOut(tween(200)),
-            modifier = Modifier.align(Alignment.Center)
-        ) {
-            Box(
-                modifier = Modifier
-                    .padding(horizontal = 32.dp)
-                    .widthIn(max = 320.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(Color(0xE61A2438))
-                    .border(1.dp, GlassStroke, RoundedCornerShape(12.dp))
-                    .padding(horizontal = 20.dp, vertical = 14.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = state.toastMessage,
-                    color = Slate200,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Medium
-                )
-            }
-        }
-
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -452,6 +416,42 @@ fun LoginScreen(
                 }
             }
         }
+
+        // 底部居中的更新入口，不占用主布局
+        QuietUpdateIcon(
+            state = state,
+            onClick = onUpdateIconClick,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .navigationBarsPadding()
+                .padding(bottom = 12.dp)
+        )
+
+        // 屏幕中央短暂提示（点击更新且无新版本等），自动消失，不被登录按钮挡住
+        AnimatedVisibility(
+            visible = state.showToast && state.toastMessage.isNotBlank(),
+            enter = fadeIn(tween(150)),
+            exit = fadeOut(tween(200)),
+            modifier = Modifier.align(Alignment.Center)
+        ) {
+            Box(
+                modifier = Modifier
+                    .padding(horizontal = 32.dp)
+                    .widthIn(max = 320.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Color(0xE61A2438))
+                    .border(1.dp, GlassStroke, RoundedCornerShape(12.dp))
+                    .padding(horizontal = 20.dp, vertical = 14.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = state.toastMessage,
+                    color = Slate200,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+        }
     }
 }
 
@@ -461,17 +461,28 @@ private fun QuietUpdateIcon(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val busy = state.checkingUpdate || state.downloading
     val hasUpdate = state.updateAvailable || state.apkReady != null
     Box(
         modifier = modifier
-            .size(40.dp)
+            .size(48.dp)
             .clip(CircleShape)
-            .clickable(enabled = !busy, onClick = onClick),
+            .clickable(enabled = !state.downloading, onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
         when {
-            busy -> {
+            state.downloading -> {
+                CircularProgressIndicator(
+                    progress = {
+                        val p = state.downloadPercent
+                        if (p in 0..100) p / 100f else 0f
+                    },
+                    modifier = Modifier.size(22.dp),
+                    strokeWidth = 2.dp,
+                    color = Amber500,
+                    trackColor = Slate400.copy(alpha = 0.25f)
+                )
+            }
+            state.checkingUpdate -> {
                 CircularProgressIndicator(
                     modifier = Modifier.size(18.dp),
                     strokeWidth = 2.dp,
@@ -483,7 +494,7 @@ private fun QuietUpdateIcon(
                     imageVector = Icons.Outlined.SystemUpdateAlt,
                     contentDescription = "检查更新",
                     tint = Slate400.copy(alpha = if (hasUpdate) 0.95f else 0.45f),
-                    modifier = Modifier.size(20.dp)
+                    modifier = Modifier.size(22.dp)
                 )
                 if (hasUpdate) {
                     Box(

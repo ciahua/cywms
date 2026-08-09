@@ -99,12 +99,20 @@ class LoginViewModel(
     fun onRemember(v: Boolean) = _ui.update { it.copy(rememberAccount = v) }
     fun toggleAdvanced() = _ui.update { it.copy(advancedOpen = !it.advancedOpen) }
 
-    /** 点击右上角更新图标：检查并在有新版本时弹窗询问 */
+    /** 点击底部更新图标：有新版本则进入下载；无新版本短暂提示 */
     fun onUpdateIconClick() {
         val s = _ui.value
         when {
-            s.downloading || s.checkingUpdate -> return
+            s.downloading -> return
+            s.checkingUpdate -> {
+                // 检查中再点：给轻提示，避免「没反应」
+                _ui.update {
+                    it.copy(showToast = true, toastMessage = "正在检查更新…")
+                }
+            }
             s.apkReady != null -> installDownloaded()
+            // 静默检查已发现新版本：直接进入下载
+            s.updateAvailable && !s.downloadUrl.isNullOrBlank() -> startDownload()
             else -> checkUpdate(promptUser = true)
         }
     }
@@ -143,15 +151,16 @@ class LoginViewModel(
     }
 
     /**
-     * @param promptUser true=用户点击更新：无新版本时短暂提示；有新版本弹确认框。
-     *                   false=启动静默检查：仅角标，不弹任何文案。
+     * @param promptUser true=用户点击：无新版本提示；有新版本直接开始下载。
+     *                   false=启动静默检查：仅角标，不提示、不下载。
      */
     fun checkUpdate(promptUser: Boolean = false) {
         if (_ui.value.downloading) return
         viewModelScope.launch {
             _ui.update {
                 it.copy(
-                    checkingUpdate = true,
+                    // 静默检查不占用按钮 busy，避免启动期间点击被吞掉
+                    checkingUpdate = promptUser,
                     updateMessage = null,
                     installMessage = null,
                     error = null,
@@ -162,11 +171,7 @@ class LoginViewModel(
             }
             when (val result = container.updateRepository.checkUpdate()) {
                 is UpdateCheckResult.UpToDate -> {
-                    val msg = if (result.remoteVersion.isNullOrBlank()) {
-                        "未找到可下载版本，当前 ${result.localVersion}"
-                    } else {
-                        "当前已是最新版本 ${result.localVersion}"
-                    }
+                    val msg = "当前没有新版本（${result.localVersion}）"
                     _ui.update {
                         it.copy(
                             checkingUpdate = false,
@@ -197,10 +202,12 @@ class LoginViewModel(
                             downloadUrl = result.remote.downloadUrl,
                             apkReady = null,
                             updateMessage = "发现新版本 ${result.remote.version}",
-                            showUpdateDialog = promptUser,
+                            showUpdateDialog = false,
                             showToast = false
                         )
                     }
+                    // 用户主动点击：有新版本直接进入下载状态
+                    if (promptUser) startDownload()
                 }
                 is UpdateCheckResult.Failed -> {
                     val msg = "检查更新失败：${result.message}"
