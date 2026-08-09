@@ -201,14 +201,14 @@ fun LoginScreen(
                 )
         )
 
-        // 右上角不起眼的更新入口，不占用主布局
+        // 底部居中的更新入口，不占用主布局
         QuietUpdateIcon(
             state = state,
             onClick = onUpdateIconClick,
             modifier = Modifier
-                .align(Alignment.TopEnd)
-                .statusBarsPadding()
-                .padding(top = 6.dp, end = 6.dp)
+                .align(Alignment.BottomCenter)
+                .navigationBarsPadding()
+                .padding(bottom = 12.dp)
         )
 
         Column(
