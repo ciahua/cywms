@@ -5,7 +5,6 @@ import android.os.Build
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
-import android.view.KeyEvent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -25,9 +24,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.DeleteSweep
@@ -45,23 +41,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalSoftwareKeyboardController
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.chenyang.cywms.scanner.ScanBus
-import com.chenyang.cywms.ui.common.scanInputNoIme
+import com.chenyang.cywms.ui.common.ScanWedgeCatcher
 import com.chenyang.cywms.ui.theme.Amber500
 import com.chenyang.cywms.ui.theme.Navy700
 import com.chenyang.cywms.ui.theme.Navy800
@@ -87,11 +75,8 @@ fun ProduceIssueScanScreen(
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
-    val keyboard = LocalSoftwareKeyboardController.current
     val records = remember { mutableStateListOf<ScanRecord>() }
     var latest by remember { mutableStateOf<String?>(null) }
-    var wedgeBuffer by remember { mutableStateOf("") }
-    val focusRequester = remember { FocusRequester() }
     val listState = rememberLazyListState()
     val timeFmt = remember { SimpleDateFormat("HH:mm:ss", Locale.getDefault()) }
 
@@ -99,7 +84,6 @@ fun ProduceIssueScanScreen(
         val trimmed = code.trim()
         if (trimmed.isEmpty()) return
         latest = trimmed
-        wedgeBuffer = ""
         records.add(
             0,
             ScanRecord(
@@ -112,8 +96,6 @@ fun ProduceIssueScanScreen(
     }
 
     LaunchedEffect(Unit) {
-        focusRequester.requestFocus()
-        keyboard?.hide()
         ScanBus.events.collect { code ->
             appendRecord(code)
         }
@@ -172,43 +154,8 @@ fun ProduceIssueScanScreen(
             }
         }
 
-        // 兼容「模拟键盘」：回车结束一枪
-        BasicTextField(
-            value = wedgeBuffer,
-            onValueChange = { wedgeBuffer = it },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(1.dp)
-                .alpha(0.01f)
-                .focusRequester(focusRequester)
-                .scanInputNoIme()
-                .onPreviewKeyEvent { event ->
-                    if (event.nativeKeyEvent.action == KeyEvent.ACTION_DOWN &&
-                        (event.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_ENTER ||
-                            event.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_NUMPAD_ENTER)
-                    ) {
-                        val buf = wedgeBuffer
-                        wedgeBuffer = ""
-                        if (buf.isNotBlank()) {
-                            ScanBus.emit(buf) // 与广播共用去重，避免一枪两条
-                        }
-                        true
-                    } else {
-                        false
-                    }
-                },
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-            keyboardActions = KeyboardActions(
-                onDone = {
-                    val buf = wedgeBuffer
-                    wedgeBuffer = ""
-                    if (buf.isNotBlank()) ScanBus.emit(buf)
-                }
-            ),
-            textStyle = TextStyle(color = Color.Transparent, fontSize = 1.sp),
-            cursorBrush = SolidColor(Color.Transparent)
-        )
+        // 原生捕获器：聚焦收楔入，但不弹软键盘
+        ScanWedgeCatcher()
 
         Box(
             modifier = Modifier
@@ -233,7 +180,7 @@ fun ProduceIssueScanScreen(
                         fontSize = 12.sp
                     )
                 }
-                Spacer(Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     text = latest ?: "等待扫码…",
                     color = if (latest == null) Slate400 else Slate200,
@@ -287,7 +234,7 @@ fun ProduceIssueScanScreen(
                         fontFamily = FontFamily.Monospace,
                         fontWeight = FontWeight.Medium
                     )
-                    Spacer(Modifier.height(4.dp))
+                    Spacer(modifier = Modifier.height(4.dp))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween

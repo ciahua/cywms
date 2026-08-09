@@ -439,19 +439,19 @@ fun LoginScreen(
         ) {
             Box(
                 modifier = Modifier
-                    .padding(horizontal = 24.dp)
-                    .widthIn(max = 320.dp)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(Color(0xCC6B1D24))
-                    .border(1.dp, Color(0x66FF8A80), RoundedCornerShape(10.dp))
-                    .padding(horizontal = 18.dp, vertical = 12.dp),
+                    .padding(horizontal = 28.dp)
+                    .widthIn(max = 280.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Color(0x99601A20))
+                    .border(1.dp, Color(0x33FF8A80), RoundedCornerShape(8.dp))
+                    .padding(horizontal = 14.dp, vertical = 8.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
                     text = state.toastMessage,
-                    color = Color(0xFFFFEBEE),
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium
+                    color = Color(0xCCFFCDD2),
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Normal
                 )
             }
         }

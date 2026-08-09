@@ -41,7 +41,10 @@ fun ModuleSoftKeyboardGuard(enabled: Boolean = true) {
         }
         val window = activity?.window
         val previousMode = window?.attributes?.softInputMode
-        window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN)
+        window?.setSoftInputMode(
+            WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN or
+                WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING
+        )
 
         fun harden(root: View) {
             if (root is EditText) {
