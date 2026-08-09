@@ -59,7 +59,7 @@ fun WmsNavHost() {
         startDestination = start
     ) {
         composable(Routes.LOGIN) {
-            val vm: LoginViewModel = viewModel(factory = LoginViewModel.factory(container))
+            val vm: LoginViewModel = viewModel(factory = LoginViewModel.factory(app))
             LoginRoute(
                 viewModel = vm,
                 onLoggedIn = {

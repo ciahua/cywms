@@ -37,6 +37,7 @@ import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -92,6 +93,9 @@ fun LoginRoute(
         onRemember = viewModel::onRemember,
         onToggleAdvanced = viewModel::toggleAdvanced,
         onTest = viewModel::testConnection,
+        onCheckUpdate = { viewModel.checkUpdate(autoDownload = false) },
+        onDownload = viewModel::startDownload,
+        onInstall = viewModel::installDownloaded,
         onLogin = viewModel::login
     )
 }
@@ -108,6 +112,9 @@ fun LoginScreen(
     onRemember: (Boolean) -> Unit,
     onToggleAdvanced: () -> Unit,
     onTest: () -> Unit,
+    onCheckUpdate: () -> Unit,
+    onDownload: () -> Unit,
+    onInstall: () -> Unit,
     onLogin: () -> Unit
 ) {
     var showPassword by remember { mutableStateOf(false) }
@@ -162,7 +169,22 @@ fun LoginScreen(
                         color = Slate400,
                         fontSize = 16.sp
                     )
-                    Spacer(Modifier.height(28.dp))
+                    Text(
+                        text = "当前版本 ${state.localVersion}",
+                        color = Slate400,
+                        fontSize = 12.sp,
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
+                    Spacer(Modifier.height(20.dp))
+
+                    UpdateBanner(
+                        state = state,
+                        onCheckUpdate = onCheckUpdate,
+                        onDownload = onDownload,
+                        onInstall = onInstall
+                    )
+
+                    Spacer(Modifier.height(14.dp))
 
                     GlassPanel {
                         Column(modifier = Modifier.padding(18.dp)) {
@@ -339,6 +361,130 @@ fun LoginScreen(
                                 }
                             }
                         }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun UpdateBanner(
+    state: LoginUiState,
+    onCheckUpdate: () -> Unit,
+    onDownload: () -> Unit,
+    onInstall: () -> Unit
+) {
+    GlassPanel {
+        Column(modifier = Modifier.padding(14.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = "程序更新",
+                    color = Slate200,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.weight(1f)
+                )
+                if (state.checkingUpdate || state.downloading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(18.dp),
+                        strokeWidth = 2.dp,
+                        color = Amber500
+                    )
+                }
+            }
+
+            state.updateMessage?.let { msg ->
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    text = msg,
+                    color = when {
+                        msg.contains("失败") -> DangerRed
+                        msg.contains("完成") || msg.contains("最新") -> SuccessGreen
+                        else -> Slate400
+                    },
+                    fontSize = 13.sp
+                )
+            }
+
+            state.remoteRemark?.takeIf { state.updateAvailable }?.let { remark ->
+                Text(
+                    text = remark,
+                    color = Slate400,
+                    fontSize = 12.sp,
+                    modifier = Modifier.padding(top = 2.dp)
+                )
+            }
+
+            if (state.downloading) {
+                Spacer(Modifier.height(10.dp))
+                if (state.downloadPercent >= 0) {
+                    LinearProgressIndicator(
+                        progress = { state.downloadPercent / 100f },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(6.dp)
+                            .clip(RoundedCornerShape(3.dp)),
+                        color = Amber500,
+                        trackColor = Color(0x33FFFFFF)
+                    )
+                } else {
+                    LinearProgressIndicator(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(6.dp)
+                            .clip(RoundedCornerShape(3.dp)),
+                        color = Amber500,
+                        trackColor = Color(0x33FFFFFF)
+                    )
+                }
+            }
+
+            state.installMessage?.let { msg ->
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    text = msg,
+                    color = if (msg.contains("无法") || msg.contains("请先")) DangerRed else SuccessGreen,
+                    fontSize = 12.sp
+                )
+            }
+
+            Spacer(Modifier.height(10.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(
+                    onClick = onCheckUpdate,
+                    enabled = !state.checkingUpdate && !state.downloading,
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Slate200)
+                ) {
+                    Text("检查更新", fontSize = 13.sp)
+                }
+                when {
+                    state.apkReady != null -> {
+                        Button(
+                            onClick = onInstall,
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Amber500,
+                                contentColor = Navy900
+                            )
+                        ) {
+                            Text("安装更新", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                    state.updateAvailable && !state.downloading -> {
+                        Button(
+                            onClick = onDownload,
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Amber500,
+                                contentColor = Navy900
+                            )
+                        ) {
+                            Text("下载更新", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                    else -> {
+                        Spacer(modifier = Modifier.weight(1f))
                     }
                 }
             }
