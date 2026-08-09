@@ -78,7 +78,7 @@ class TokenInterceptor(
 
 class ApiClient(private val prefs: SessionPrefs) {
     private val mutex = Mutex()
-    private val baseUrlRef = AtomicReference("http://172.16.5.7:8080/")
+    private val baseUrlRef = AtomicReference("${SessionPrefs.DEFAULT_PROXY_URL}/")
     private val ngrokRef = AtomicReference(false)
     private val tokenRef = AtomicReference("")
 

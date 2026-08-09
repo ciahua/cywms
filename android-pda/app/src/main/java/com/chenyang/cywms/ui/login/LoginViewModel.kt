@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.chenyang.cywms.AppContainer
 import com.chenyang.cywms.data.api.LoginOutcome
+import com.chenyang.cywms.data.prefs.SessionPrefs
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -16,7 +17,7 @@ data class LoginUiState(
     val host: String = "172.16.5.7",
     val port: String = "8080",
     val useHttps: Boolean = false,
-    val proxyUrl: String = "",
+    val proxyUrl: String = SessionPrefs.DEFAULT_PROXY_URL,
     val username: String = "",
     val password: String = "",
     val rememberAccount: Boolean = true,

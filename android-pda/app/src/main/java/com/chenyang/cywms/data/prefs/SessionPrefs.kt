@@ -17,7 +17,8 @@ data class SessionSnapshot(
     val host: String = "172.16.5.7",
     val port: String = "8080",
     val useHttps: Boolean = false,
-    val proxyUrl: String = "",
+    /** 远程联调默认走 ngrok；现场使用时在登录页清空即可直连内网 */
+    val proxyUrl: String = SessionPrefs.DEFAULT_PROXY_URL,
     val username: String = "",
     val password: String = "",
     val rememberAccount: Boolean = true,
@@ -40,6 +41,10 @@ data class SessionSnapshot(
 }
 
 class SessionPrefs(private val context: Context) {
+    companion object {
+        const val DEFAULT_PROXY_URL = "https://3c17-222-186-202-65.ngrok-free.app"
+    }
+
     private object Keys {
         val host = stringPreferencesKey("host")
         val port = stringPreferencesKey("port")
@@ -57,7 +62,7 @@ class SessionPrefs(private val context: Context) {
             host = prefs[Keys.host] ?: "172.16.5.7",
             port = prefs[Keys.port] ?: "8080",
             useHttps = prefs[Keys.useHttps] ?: false,
-            proxyUrl = prefs[Keys.proxyUrl] ?: "",
+            proxyUrl = prefs[Keys.proxyUrl] ?: DEFAULT_PROXY_URL,
             username = prefs[Keys.username] ?: "",
             password = prefs[Keys.password] ?: "",
             rememberAccount = prefs[Keys.remember] ?: true,
