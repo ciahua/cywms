@@ -1,6 +1,10 @@
 # cywms-pda · 辰阳电子 WMS PDA（原生 Android）
 
-Kotlin + Jetpack Compose 骨架：登录（可配服务器 / ngrok 代理）+ 分组主界面（14 模块入口）。
+Kotlin + Jetpack Compose：登录（可配服务器 / ngrok 代理）+ 分组主界面（14 模块入口）+ **生产领料**全链路。
+
+> 仓库级交接说明见 [`../docs/交接文档.md`](../docs/交接文档.md)。
+
+当前版本：`v1.1.1`（见 `app/build.gradle.kts`）。
 
 ## 打开工程
 
