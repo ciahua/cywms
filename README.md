@@ -2,14 +2,14 @@
 
 PDA 端按 **原生 Android（Kotlin + Jetpack Compose）** 重建，对接现有 JeecgBoot 后端；**不用 Flutter**。
 
-> **维护接手请先读：** [`docs/交接文档.md`](docs/交接文档.md)（位置、用法、发版、完成度、风险）
+> **维护接手请先读：** [`docs/交接文档.md`](docs/交接文档.md) / [`docs/交接文档.docx`](docs/交接文档.docx)（位置、用法、发版、完成度、风险）
 
 ## 工程
 
 | 路径 | 说明 |
 |------|------|
 | [`android-pda/`](android-pda/) | PDA 客户端（用 Android Studio 打开此目录） |
-| [`docs/交接文档.md`](docs/交接文档.md) | **项目交接 / 运维手册** |
+| [`docs/交接文档.md`](docs/交接文档.md) / [`docs/交接文档.docx`](docs/交接文档.docx) | **项目交接 / 运维手册**（Markdown + Word） |
 | [`docs/pda-rebuild/`](docs/pda-rebuild/) | 重建方案 / 模块矩阵 / 接口契约 |
 | [`legacy/`](legacy/) | 旧 APK 分析说明书（权威依据） |
 
